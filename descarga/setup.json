@@ -1,0 +1,16 @@
+{
+  "_comment": {
+    "descarga_continua": "Configura: \"dates\": [\"AAAA-MM-DD\"], \"start_hour\": \"HH:MM\", \"end_date\": null, \"end_hour\": null.",
+    "ventana_temporal": "Configura: \"dates\": [\"AAAA-MM-DD\"], \"start_hour\": \"HH:MM\", \"end_date\": \"AAAA-MM-DD\", \"end_hour\": \"HH:MM\"."
+  },
+  "db_path": "db/",
+  "log_path": "logs/",
+  "product": "ABI-L1b-RadF",
+  "timeout": 120,
+  "bands": [2, 5, 7, 8, 10, 13],
+  "dates": ["2024-03-19"],
+  "start_hour": "21:00",
+  "max_workers": 1,
+  "end_date": "2024-03-19",
+  "end_hour": "21:20"
+}

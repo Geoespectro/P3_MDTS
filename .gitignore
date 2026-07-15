@@ -1,0 +1,53 @@
+# ============================================================
+# Python y entorno virtual
+# ============================================================
+
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# ============================================================
+# Configuración local del editor
+# ============================================================
+
+.vscode/
+
+
+# ============================================================
+# Estado y mediciones locales
+# ============================================================
+
+pipeline_state.json
+pipeline_state.json.tmp
+mediciones/
+
+
+# ============================================================
+# Datos generados por la descarga
+# ============================================================
+
+descarga/data/
+descarga/temp/
+descarga/logs/
+descarga/db/download_db.json
+
+
+# ============================================================
+# Productos generados por el procesador
+# ============================================================
+
+Procesador/data/resampled/
+Procesador/data/rgb/
+Procesador/data/output/png/
+Procesador/data/output/gif/
+Procesador/data/output/diagnostico/
+
+
+# ============================================================
+# Archivos NetCDF generados
+# ============================================================
+
+*.nc

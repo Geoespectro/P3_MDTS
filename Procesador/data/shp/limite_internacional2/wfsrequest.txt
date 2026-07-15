@@ -1,0 +1,1 @@
+https://wms.ign.gob.ar/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=ign:linea_de_limite_070111&outputFormat=SHAPE-ZIP

@@ -1,0 +1,50 @@
+{
+  "product_name": "MDTS",
+  "product_full_name": "Mapa RGB de Tormentas Severas",
+  "output_prefix": "CONAE_PRD_GOES16_ABI_MDTS_RGB",
+  "region": "ARG",
+
+  "input_rgb_base_dir": "Procesador/data/rgb",
+  "output_png_dir": "Procesador/data/output/png",
+  "output_gif_dir": "Procesador/data/output/gif",
+  "gif_filename": "CONAE_PRD_GOES16_ABI_MDTS_RGB_animacion.gif",
+
+  "assets_dir": "Procesador/data",
+  "grids_dir": "Procesador/data/grids",
+  "logo_path": "Procesador/data/logo/logo.png",
+  "shp_dir": "Procesador/data/shp",
+
+  "argentina_lon_W": -90.0,
+  "argentina_lon_E": -40.5,
+  "argentina_lat_S": -55.5,
+  "argentina_lat_N": -15.5,
+
+  "sudamerica_lon_W": -100.0,
+  "sudamerica_lon_E": -30.0,
+  "sudamerica_lat_S": -60.0,
+  "sudamerica_lat_N": -5.0,
+
+  "delta_lon_W_for_graph": -5.0,
+  "delta_lat_S_for_graph": -5.0,
+  "delta_lat_N_for_graph": 4.0,
+
+  "figure_resolution_dpi": 200,
+  "figure_length_inches": 8,
+  "figure_high_inches": 5,
+
+  "line_width_inches_for_coast": 0.2,
+  "line_width_inches_for_gridlines": 0.2,
+  "line_width_inches_for_province_limits": 0.3,
+  "line_width_inches_for_nation_limits": 0.2,
+
+  "font_size_title": 8.0,
+  "gif_frame_duration": 0.7,
+
+  "rgb_variables": {
+    "red": "Red",
+    "green": "Green",
+    "blue": "Blue"
+  },
+
+  "map_title": "GOES-16 ABI - MDTS RGB - Mapa de Tormentas Severas"
+}
