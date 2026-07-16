@@ -26,12 +26,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
-
 
 # ============================================================
 # Rutas del proyecto
@@ -39,7 +39,6 @@ from matplotlib.patches import Patch
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_DIR / "Procesador" / "src"
-
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
@@ -47,43 +46,22 @@ from helpers_resampleo import (  # noqa: E402
     find_band_file,
     radiance_to_brightness_temperature,
 )
-
+from mapa_rgb import (  # noqa: E402
+    get_crop_indexes as get_map_crop_indexes,
+)
+from mapa_rgb import (
+    get_plot_object,
+)
 
 DOWNLOAD_DATA_DIR = PROJECT_DIR / "descarga" / "data"
-CONF_PATH = (
-    PROJECT_DIR
-    / "Procesador"
-    / "data"
-    / "conf"
-    / "config_mapa.json"
-)
-LATS_PATH = (
-    PROJECT_DIR
-    / "Procesador"
-    / "data"
-    / "grids"
-    / "g16_lats_8km.txt"
-)
-LONS_PATH = (
-    PROJECT_DIR
-    / "Procesador"
-    / "data"
-    / "grids"
-    / "g16_lons_8km.txt"
-)
-OUTPUT_DIR = (
-    PROJECT_DIR
-    / "Procesador"
-    / "data"
-    / "output"
-    / "diagnostico"
-)
+CONF_PATH = PROJECT_DIR / "Procesador" / "data" / "conf" / "config_mapa.json"
+OUTPUT_DIR = PROJECT_DIR / "Procesador" / "data" / "output" / "diagnostico"
 
 INTERVAL_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{4}$")
 
 THRESHOLD_YELLOW = -53.15  # 220 K
 THRESHOLD_ORANGE = -63.15  # 210 K
-THRESHOLD_RED = -73.15     # 200 K
+THRESHOLD_RED = -73.15  # 200 K
 
 
 # ============================================================
@@ -107,7 +85,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def validate_required_files() -> None:
-    required = [CONF_PATH, LATS_PATH, LONS_PATH]
+    required = [CONF_PATH]
     missing = [str(path) for path in required if not path.is_file()]
 
     if missing:
@@ -116,88 +94,6 @@ def validate_required_files() -> None:
         )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def get_crop_indexes(
-    lats: np.ndarray,
-    lons: np.ndarray,
-    conf: dict[str, Any],
-) -> tuple[int, int, int, int]:
-    lon_w = float(conf["argentina_lon_W"]) + float(
-        conf.get("delta_lon_W_for_graph", 0.0)
-    )
-    lon_e = float(conf["argentina_lon_E"])
-    lat_s = float(conf["argentina_lat_S"]) + float(
-        conf.get("delta_lat_S_for_graph", 0.0)
-    )
-    lat_n = float(conf["argentina_lat_N"]) + float(
-        conf.get("delta_lat_N_for_graph", 0.0)
-    )
-
-    mask = (
-        np.isfinite(lats)
-        & np.isfinite(lons)
-        & (lons >= lon_w)
-        & (lons <= lon_e)
-        & (lats >= lat_s)
-        & (lats <= lat_n)
-    )
-
-    rows, cols = np.where(mask)
-
-    if rows.size == 0 or cols.size == 0:
-        raise ValueError(
-            "No se pudo calcular el recorte para la ROI configurada."
-        )
-
-    return int(rows.min()), int(rows.max()), int(cols.min()), int(cols.max())
-
-
-def reduce_to_grid(
-    data: np.ndarray,
-    target_shape: tuple[int, int],
-) -> np.ndarray:
-    """
-    Reduce una matriz por promedio de bloques para igualar la grilla auxiliar.
-    """
-    if data.shape == target_shape:
-        return data
-
-    target_rows, target_cols = target_shape
-    source_rows, source_cols = data.shape
-
-    if source_rows % target_rows != 0 or source_cols % target_cols != 0:
-        raise ValueError(
-            "No se puede reducir B13 automáticamente. "
-            f"B13={data.shape}, grilla={target_shape}"
-        )
-
-    factor_y = source_rows // target_rows
-    factor_x = source_cols // target_cols
-
-    if factor_y != factor_x:
-        raise ValueError(
-            "La reducción requerida no es uniforme: "
-            f"factor_y={factor_y}, factor_x={factor_x}"
-        )
-
-    print(
-        f"Reduciendo B13 por bloques {factor_y}x{factor_x} "
-        "para igualar la grilla auxiliar."
-    )
-
-    reduced = np.nanmean(
-        data.reshape(
-            target_rows,
-            factor_y,
-            target_cols,
-            factor_x,
-        ),
-        axis=(1, 3),
-    )
-
-    print(f"Nueva forma B13 reducida: {reduced.shape}")
-    return reduced
 
 
 def get_available_intervals() -> list[str]:
@@ -225,16 +121,8 @@ def build_exclusive_masks(bt_crop: np.ndarray) -> np.ndarray:
 
     valid = np.isfinite(bt_crop)
 
-    yellow = (
-        valid
-        & (bt_crop <= THRESHOLD_YELLOW)
-        & (bt_crop > THRESHOLD_ORANGE)
-    )
-    orange = (
-        valid
-        & (bt_crop <= THRESHOLD_ORANGE)
-        & (bt_crop > THRESHOLD_RED)
-    )
+    yellow = valid & (bt_crop <= THRESHOLD_YELLOW) & (bt_crop > THRESHOLD_ORANGE)
+    orange = valid & (bt_crop <= THRESHOLD_ORANGE) & (bt_crop > THRESHOLD_RED)
     red = valid & (bt_crop <= THRESHOLD_RED)
 
     masks[yellow] = 1
@@ -295,52 +183,117 @@ def calculate_statistics(
 def save_bt_png(
     interval: str,
     bt_crop: np.ndarray,
+    img_extent: tuple[float, float, float, float],
+    map_extent: list[float],
+    satellite_crs: ccrs.Geostationary,
+    conf: dict[str, Any],
     output_path: Path,
 ) -> None:
-    figure, axis = plt.subplots(figsize=(11, 7))
+    dpi = conf.get("figure_resolution_dpi", 200)
+    fig_width = conf.get("figure_length_inches", 8)
+    fig_height = conf.get("figure_high_inches", 5)
+
+    figure = plt.figure(clear=True)
+    figure.set_size_inches(fig_width, fig_height)
+
+    axis = get_plot_object(conf, map_extent)
 
     image = axis.imshow(
         bt_crop,
+        transform=satellite_crs,
+        extent=img_extent,
+        origin="upper",
         cmap="gray_r",
         vmin=-90,
         vmax=30,
+        interpolation="nearest",
+        aspect="auto",
+        zorder=1,
     )
 
-    colorbar = figure.colorbar(image, ax=axis)
+    colorbar = figure.colorbar(
+        image,
+        ax=axis,
+        orientation="vertical",
+        pad=0.03,
+        shrink=0.85,
+    )
     colorbar.set_label("Temperatura de brillo B13 [°C]")
 
-    axis.set_title(f"B13 Temperatura de brillo - {interval}")
-    axis.axis("off")
+    axis.set_title(
+        f"B13 Temperatura de brillo - {interval}",
+        fontsize=10,
+        pad=8,
+    )
 
-    figure.tight_layout()
-    figure.savefig(output_path, dpi=160, bbox_inches="tight")
+    figure.savefig(output_path, dpi=dpi)
     plt.close(figure)
 
 
 def save_mask_png(
     interval: str,
+    bt_crop: np.ndarray,
     masks: np.ndarray,
+    img_extent: tuple[float, float, float, float],
+    map_extent: list[float],
+    satellite_crs: ccrs.Geostationary,
+    conf: dict[str, Any],
     output_path: Path,
 ) -> None:
-    cmap = ListedColormap(["black", "yellow", "orange", "red"])
+    dpi = conf.get("figure_resolution_dpi", 200)
+    fig_width = conf.get("figure_length_inches", 8)
+    fig_height = conf.get("figure_high_inches", 5)
 
-    figure, axis = plt.subplots(figsize=(11, 7))
+    cmap = ListedColormap(
+        [
+            (0.0, 0.0, 0.0, 0.0),
+            (1.0, 1.0, 0.0, 0.85),
+            (1.0, 0.65, 0.0, 0.90),
+            (1.0, 0.0, 0.0, 0.95),
+        ]
+    )
 
+    figure = plt.figure(clear=True)
+    figure.set_size_inches(fig_width, fig_height)
+
+    axis = get_plot_object(conf, map_extent)
+
+    # Fondo térmico B13
+    axis.imshow(
+        bt_crop,
+        transform=satellite_crs,
+        extent=img_extent,
+        origin="upper",
+        cmap="gray_r",
+        vmin=-90,
+        vmax=30,
+        interpolation="nearest",
+        aspect="auto",
+        zorder=1,
+    )
+
+    # Máscaras severas superpuestas
     axis.imshow(
         masks,
+        transform=satellite_crs,
+        extent=img_extent,
+        origin="upper",
         cmap=cmap,
         vmin=0,
         vmax=3,
         interpolation="nearest",
+        aspect="auto",
+        zorder=2,
     )
 
     axis.set_title(
-        f"Máscaras B13 - {interval}\n"
+        f"Máscaras térmicas B13 - {interval}\n"
         "amarillo: -63.15 a -53.15 °C | "
         "naranja: -73.15 a -63.15 °C | "
-        "rojo: ≤ -73.15 °C"
+        "rojo: ≤ -73.15 °C",
+        fontsize=8,
+        pad=8,
     )
-    axis.axis("off")
 
     legend_elements = [
         Patch(
@@ -363,13 +316,18 @@ def save_mask_png(
     axis.legend(
         handles=legend_elements,
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.08),
+        bbox_to_anchor=(0.5, -0.16),
         ncol=3,
         frameon=True,
+        fontsize=7,
     )
 
-    figure.tight_layout()
-    figure.savefig(output_path, dpi=160, bbox_inches="tight")
+    figure.savefig(
+        output_path,
+        dpi=dpi,
+        bbox_inches="tight",
+    )
+
     plt.close(figure)
 
 
@@ -439,15 +397,11 @@ def print_statistics(statistics: dict[str, Any]) -> None:
 def process_interval(
     interval: str,
     conf: dict[str, Any],
-    lats: np.ndarray,
-    lons: np.ndarray,
 ) -> dict[str, Any]:
     input_dir = DOWNLOAD_DATA_DIR / interval
 
     if not input_dir.is_dir():
-        raise FileNotFoundError(
-            f"No existe la carpeta del intervalo: {input_dir}"
-        )
+        raise FileNotFoundError(f"No existe la carpeta del intervalo: {input_dir}")
 
     b13_path = Path(find_band_file(str(input_dir), "13"))
 
@@ -457,34 +411,54 @@ def process_interval(
     print(f"Leyendo B13: {b13_path}")
 
     with xr.open_dataset(b13_path) as dataset:
-        if "Rad" not in dataset:
-            raise KeyError(f"La variable 'Rad' no existe en: {b13_path}")
+        required = [
+            "Rad",
+            "x",
+            "y",
+            "goes_imager_projection",
+        ]
+
+        for variable in required:
+            if variable not in dataset.variables and variable not in dataset.coords:
+                raise KeyError(f"No existe '{variable}' en: {b13_path}")
 
         bt_celsius = radiance_to_brightness_temperature(
             dataset["Rad"].values,
             dataset,
         )
+        bt_celsius = np.asarray(bt_celsius, dtype=np.float32)
 
-    bt_celsius = np.asarray(bt_celsius, dtype=np.float32)
+        if bt_celsius.ndim != 2:
+            raise ValueError(
+                "B13 debe ser bidimensional. " f"Forma recibida: {bt_celsius.shape}"
+            )
 
-    if bt_celsius.ndim != 2:
-        raise ValueError(
-            f"B13 debe ser bidimensional. Forma recibida: {bt_celsius.shape}"
+        img_extent, img_indexes, map_extent = get_map_crop_indexes(dataset, conf)
+
+        (
+            min_lon_idx,
+            max_lon_idx,
+            min_lat_idx,
+            max_lat_idx,
+        ) = img_indexes
+
+        bt_crop = bt_celsius[
+            min_lat_idx:max_lat_idx,
+            min_lon_idx:max_lon_idx,
+        ]
+
+        projection = dataset["goes_imager_projection"]
+
+        satellite_crs = ccrs.Geostationary(
+            central_longitude=(projection.longitude_of_projection_origin),
+            satellite_height=(projection.perspective_point_height),
         )
-
-    bt_celsius = reduce_to_grid(bt_celsius, lats.shape)
-
-    if lons.shape != lats.shape:
-        raise ValueError(
-            f"Las grillas lat/lon no coinciden: "
-            f"lats={lats.shape}, lons={lons.shape}"
-        )
-
-    r0, r1, c0, c1 = get_crop_indexes(lats, lons, conf)
-    bt_crop = bt_celsius[r0 : r1 + 1, c0 : c1 + 1]
 
     if bt_crop.size == 0:
         raise ValueError(f"El recorte quedó vacío para {interval}.")
+
+    if not np.any(np.isfinite(bt_crop)):
+        raise ValueError(f"El recorte de {interval} no contiene datos válidos.")
 
     masks = build_exclusive_masks(bt_crop)
     statistics = calculate_statistics(interval, bt_crop, masks)
@@ -492,8 +466,25 @@ def process_interval(
     out_bt = OUTPUT_DIR / f"{interval}_B13_BT.png"
     out_mask = OUTPUT_DIR / f"{interval}_B13_mascaras.png"
 
-    save_bt_png(interval, bt_crop, out_bt)
-    save_mask_png(interval, masks, out_mask)
+    save_bt_png(
+        interval,
+        bt_crop,
+        img_extent,
+        map_extent,
+        satellite_crs,
+        conf,
+        out_bt,
+    )
+    save_mask_png(
+        interval,
+        bt_crop,
+        masks,
+        img_extent,
+        map_extent,
+        satellite_crs,
+        conf,
+        out_mask,
+    )
     out_json = save_interval_json(interval, statistics)
 
     print_statistics(statistics)
@@ -558,20 +549,10 @@ def main() -> int:
     validate_required_files()
 
     conf = load_json(CONF_PATH)
-    lats = np.loadtxt(LATS_PATH)
-    lons = np.loadtxt(LONS_PATH)
-
-    if lats.ndim != 2 or lons.ndim != 2:
-        raise ValueError(
-            f"Las grillas deben ser bidimensionales: "
-            f"lats={lats.shape}, lons={lons.shape}"
-        )
 
     if args.interval:
         if not INTERVAL_PATTERN.fullmatch(args.interval):
-            parser.error(
-                "--interval debe tener formato YYYY-MM-DD_HHMM."
-            )
+            parser.error("--interval debe tener formato YYYY-MM-DD_HHMM.")
         intervals = [args.interval]
     else:
         intervals = get_available_intervals()
@@ -587,9 +568,7 @@ def main() -> int:
 
     for interval in intervals:
         try:
-            successful.append(
-                process_interval(interval, conf, lats, lons)
-            )
+            successful.append(process_interval(interval, conf))
         except Exception as error:
             failed.append((interval, str(error)))
             print(f"\nERROR en {interval}: {error}", file=sys.stderr)
