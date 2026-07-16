@@ -106,6 +106,23 @@ else:
     end_datetime = None
 
 
+def build_interval_folder_name(
+    year: str,
+    day: str,
+    hour: str,
+    minute: str,
+) -> str:
+    """
+    Convierte año + día juliano + hora al formato YYYY-MM-DD_HHMM.
+    """
+    interval_datetime = datetime.datetime.strptime(
+        f"{year}{day}{hour}{minute}",
+        "%Y%j%H%M",
+    )
+
+    return interval_datetime.strftime("%Y-%m-%d_%H%M")
+
+
 # Función para descargar un archivo y organizarlo en carpetas
 def download_file(f, temp_path, final_path, year, day, hour, minute):
 
@@ -115,7 +132,13 @@ def download_file(f, temp_path, final_path, year, day, hour, minute):
         return
 
     # Crear carpeta para el intervalo actual (YYYY-MM-DD_HHMM)
-    folder_name = f"{year}-{datetime.datetime.strptime(day, '%j').strftime('%m-%d')}_{hour}{minute}"
+    folder_name = build_interval_folder_name(
+        year,
+        day,
+        hour,
+        minute,
+    )
+
     interval_path = os.path.join(final_path, folder_name)
 
     if not os.path.exists(interval_path):
@@ -267,7 +290,13 @@ while True:
     )
 
     # Crear el nombre de la carpeta para el intervalo actual
-    folder_name = f"{year}-{datetime.datetime.strptime(day, '%j').strftime('%m-%d')}_{hour}{minute}"
+    folder_name = build_interval_folder_name(
+        year,
+        day,
+        hour,
+        minute,
+    )
+
     interval_path = os.path.join(image_path, folder_name)
 
     if len(download_db[year][day][hour][minute]) == len(bands):
