@@ -933,10 +933,13 @@ def main() -> int:
             )
 
             if interval_to_process is not None:
+                processing_failed = False
+
                 try:
                     process_interval(interval_to_process, state)
 
                 except Exception as error:
+                    processing_failed = True
                     state = load_state()
                     attempt = register_failure(
                         state,
@@ -962,6 +965,8 @@ def main() -> int:
 
                 if args.once:
                     log("Modo --once activo. Finalizando.")
+                    if processing_failed:
+                        return 2
                     break
 
                 # Si hay más intervalos listos, se revisan inmediatamente.
