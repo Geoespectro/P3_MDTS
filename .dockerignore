@@ -1,0 +1,16 @@
+.venv
+.git
+__pycache__
+*.pyc
+*.pyo
+
+descarga/data
+descarga/db
+descarga/logs
+descarga/temp
+
+Procesador/data/output
+Procesador/data/resampled
+Procesador/data/rgb
+
+test/__pycache__
