@@ -196,6 +196,8 @@ def process_intervals(
     print(f"Intervalos procesados correctamente: {processed_count}")
     print(f"Intervalos omitidos o con error: {skipped_count}")
 
+    return skipped_count == 0
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -224,7 +226,7 @@ def main():
     resampled_base_directory = os.path.join(PROCESSOR_DIR, "data", "resampled")
     rgb_base_directory = os.path.join(PROCESSOR_DIR, "data", "rgb")
 
-    process_intervals(
+    success = process_intervals(
         input_base_dir=input_base_directory,
         resampled_base_dir=resampled_base_directory,
         rgb_base_dir=rgb_base_directory,
@@ -232,6 +234,8 @@ def main():
         target_interval=args.interval,
     )
 
+    return 0 if success else 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -648,12 +648,13 @@ def main():
                 args.interval,
                 conf["input_rgb_base_dir"],
             )
+            return 1
         else:
             logging.warning(
                 "No se encontraron RGB en: %s",
                 conf["input_rgb_base_dir"],
             )
-        return
+            return 0
 
     if args.interval:
         logging.info(
@@ -664,12 +665,14 @@ def main():
         logging.info("RGB encontrados: %s", len(rgb_files))
 
     generated_pngs = []
+    had_errors = False
 
     for rgb_file in rgb_files:
         try:
             png_path = process_rgb_file(rgb_file, conf)
             generated_pngs.append(png_path)
         except Exception as e:
+            had_errors = True
             logging.error("Error procesando %s: %s", rgb_file, e)
 
     all_pngs = get_existing_pngs(conf)
@@ -680,7 +683,8 @@ def main():
     build_gif(all_pngs, conf)
 
     logging.info("Proceso de mapa y GIF finalizado.")
+    return 1 if had_errors else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
