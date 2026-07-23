@@ -1,0 +1,63 @@
+flowchart TB
+
+    subgraph MOD["PIPELINE PRINCIPAL"]
+        direction LR
+        O["1. run_all.py<br/>Orquestación general"]
+        D["2. descarga/<br/>Adquisición de datos"]
+        V["3. Validación de intervalo<br/>Unicidad y estabilidad"]
+        R["4. resampleo_alg_band.py<br/>Coordinación científica"]
+        H["5. helpers_resampleo.py<br/>Cálculo físico y NetCDF RGB"]
+        M["6. mapa_rgb.py<br/>Generación de PNG y GIF"]
+        G["7. diagnostico/<br/>Análisis separado y opcional"]
+
+        O --> D
+        D --> V
+        V --> R
+        R --> H
+        H --> M
+        M -. "opcional" .-> G
+    end
+
+    subgraph STORE["ALMACENAMIENTO Y ESTADO"]
+        RAW[("descarga/data<br/>Bandas por intervalo")]
+        RGB[("Procesador/data/rgb<br/>NetCDF RGB")]
+        OUT[("Procesador/data/output<br/>PNG y GIF")]
+        DS[("download_db.json<br/>Estado de descarga")]
+        PS[("pipeline_state.json<br/>Estado del pipeline")]
+    end
+
+    subgraph CONF["CONFIGURACIÓN Y RECURSOS"]
+        C1["descarga/setup.json"]
+        C2["config_resampleo.json"]
+        C3["config_mapa.json"]
+        AS["Grillas, logo y shapefiles"]
+    end
+
+    subgraph TEST["PRUEBAS INSPECCIONADAS"]
+        T1["test/test_descarga.py"]
+        T2["test/test_procesador.py"]
+    end
+
+    D --> RAW
+    D --> DS
+    O --> PS
+    H --> RGB
+    M --> OUT
+
+    C1 --> D
+    C2 --> R
+    C3 --> M
+    AS --> M
+
+    T1 -. "verifica parcialmente" .-> D
+    T2 -. "verifica parcialmente" .-> H
+
+    classDef pipeline fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+    classDef storage fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+    classDef config fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef tests fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+
+    class O,D,V,R,H,M,G pipeline
+    class RAW,RGB,OUT,DS,PS storage
+    class C1,C2,C3,AS config
+    class T1,T2 tests

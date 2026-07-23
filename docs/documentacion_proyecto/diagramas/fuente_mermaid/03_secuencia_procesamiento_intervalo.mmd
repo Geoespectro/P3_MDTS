@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant O as run_all.py
+    participant FS as descarga/data/intervalo
+    participant P as resampleo_alg_band.py
+    participant H as helpers_resampleo.py
+    participant RGB as Procesador/data/rgb/intervalo
+    participant M as mapa_rgb.py
+    participant OUT as Procesador/output/png y gif
+    participant S as pipeline_state.json
+
+    O->>FS: Inspecciona la carpeta del intervalo
+    O->>O: Exige exactamente 1 NetCDF por banda<br/>y una firma nombre, tamaño y mtime estable
+
+    alt Intervalo completo y estable
+        O->>P: Ejecuta --interval
+        P->>FS: Lee B02, B05, B07, B08, B10 y B13
+        P->>H: Solicita remuestreo y conversiones físicas
+        H->>H: Usa B13 como grilla de referencia
+        H->>H: Calcula R = B08 - B10<br/>G = B07 - B13<br/>B = B05 - B02
+        H->>RGB: Escribe el NetCDF RGB
+        H-->>P: Devuelve resultado del procesamiento
+        P-->>O: Retorna código de salida
+
+        O->>RGB: Valida que el NetCDF RGB exista<br/>y no esté vacío
+        O->>S: Registra processed_intervals
+
+        O->>M: Ejecuta --interval
+        M->>RGB: Lee el NetCDF RGB
+        M->>OUT: Genera el PNG del intervalo
+        M->>OUT: Reconstruye el GIF con los PNG disponibles
+        M-->>O: Retorna resultado cartográfico
+
+        O->>OUT: Valida PNG, GIF y vigencia temporal
+        O->>S: Registra mapped_intervals<br/>y limpia fallos del intervalo
+    else Intervalo incompleto, duplicado o inestable
+        O->>O: No ejecuta el procesamiento<br/>y espera una nueva inspección
+    end
+
+    Note over O,S: Solo run_all.py persiste pipeline_state.json

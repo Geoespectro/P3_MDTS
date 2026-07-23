@@ -1,0 +1,80 @@
+flowchart TB
+
+    subgraph F1["1. FUENTES Y CONFIGURACIÓN"]
+        S3[("NOAA / S3<br/>Datos GOES-16")]
+        SETUP["descarga/setup.json<br/>Fechas, horarios, bandas y descarga"]
+        CR["config_resampleo.json<br/>Remuestreo y procesamiento RGB"]
+        CM["config_mapa.json<br/>Región y parámetros cartográficos"]
+        GEO["Grillas, logo y shapefiles"]
+    end
+
+    subgraph F2["2. ADQUISICIÓN DE DATOS"]
+        DESC["Descarga de bandas GOES-16"]
+        BANDAS[("NetCDF por intervalo<br/>B02, B05, B07, B08, B10 y B13")]
+    end
+
+    subgraph F3["3. VALIDACIÓN Y ORQUESTACIÓN"]
+        VAL["run_all.py<br/>Valida unicidad y estabilidad<br/>del intervalo"]
+        ESTADO[("pipeline_state.json<br/>Estado del procesamiento")]
+    end
+
+    subgraph F4["4. PROCESAMIENTO CIENTÍFICO"]
+        REM["Remuestreo de bandas<br/>sobre la grilla de B13"]
+        CONV["Conversión física<br/>Reflectancia y temperatura de brillo"]
+        ALG["Álgebra y normalización RGB<br/>R = B08 - B10<br/>G = B07 - B13<br/>B = B05 - B02"]
+        RGB[("NetCDF RGB<br/>georreferenciado")]
+    end
+
+    subgraph F5["5. PRODUCTOS CARTOGRÁFICOS"]
+        MAPA["Generación cartográfica"]
+        PNG[("Mapa PNG<br/>por intervalo")]
+        GIFPROC["Reconstrucción de la animación"]
+        GIF[("GIF")]
+    end
+
+    subgraph F6["6. DIAGNÓSTICOS SEPARADOS"]
+        DB13["Diagnóstico específico de B13"]
+        SALB13[("PNG térmicos<br/>JSON y CSV")]
+        DTEMP["Diagnóstico temporal RGB<br/>a partir de PNG")]
+        SALTEMP[("CSV temporal")]
+    end
+
+    S3 --> DESC
+    SETUP --> DESC
+    DESC --> BANDAS
+
+    BANDAS --> VAL
+    VAL -. "actualiza estado" .-> ESTADO
+
+    VAL --> REM
+    CR --> REM
+    REM --> CONV
+    CONV --> ALG
+    ALG --> RGB
+
+    RGB --> MAPA
+    CM --> MAPA
+    GEO --> MAPA
+    MAPA --> PNG
+    PNG --> GIFPROC
+    GIFPROC --> GIF
+
+    BANDAS -. "archivo NetCDF B13" .-> DB13
+    DB13 --> SALB13
+
+    PNG -. "ejecución separada" .-> DTEMP
+    DTEMP --> SALTEMP
+
+    classDef fuente fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+    classDef descarga fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+    classDef control fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef proceso fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+    classDef producto fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#111827
+    classDef diagnostico fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#111827
+
+    class S3,SETUP,CR,CM,GEO fuente
+    class DESC,BANDAS descarga
+    class VAL,ESTADO control
+    class REM,CONV,ALG,RGB proceso
+    class MAPA,PNG,GIFPROC,GIF producto
+    class DB13,SALB13,DTEMP,SALTEMP diagnostico

@@ -1,0 +1,49 @@
+flowchart LR
+
+    subgraph CP["CORTO PLAZO — CONTRATO OPERATIVO"]
+        direction TB
+        A["1. Validador único<br/>de intervalos"]
+        B["2. Estado de descarga<br/>serializado y atómico"]
+        C["3. Taxonomía de errores"]
+        D["4. Reintentos finitos<br/>con backoff"]
+        E["5. Pruebas de descarga<br/>sin red"]
+        F["6. Alinear documentación<br/>y limpieza segura"]
+
+        A --> B --> C --> D --> E --> F
+    end
+
+    subgraph MP["MEDIANO PLAZO — CALIDAD Y CAPACIDAD"]
+        direction TB
+        G["1. Integración con<br/>NetCDF sintético"]
+        H["2. Prueba E2E simulada"]
+        I["3. Medición de memoria<br/>y tiempo"]
+        J["4. Manifiesto de frames GIF"]
+        K["5. Logging y métricas"]
+        L["6. CI determinista"]
+
+        G --> H --> I
+        H --> J
+        H --> K --> L
+    end
+
+    subgraph LP["LARGO PLAZO — OPERACIÓN INSTITUCIONAL"]
+        direction TB
+        M["1. Separación de servicios"]
+        N["2. Almacenamiento compartido<br/>e idempotencia"]
+        O["3. Servicio autorizado<br/>y colas"]
+        P["4. Retención, seguridad<br/>y monitoreo"]
+
+        M --> N --> O --> P
+    end
+
+    F --> G
+    L --> M
+    I --> M
+
+    classDef corto fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+    classDef mediano fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef largo fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+
+    class A,B,C,D,E,F corto
+    class G,H,I,J,K,L mediano
+    class M,N,O,P largo

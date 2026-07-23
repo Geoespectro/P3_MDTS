@@ -1,0 +1,63 @@
+flowchart LR
+
+    subgraph ENTRADAS["ENTRADAS Y CONFIGURACIÓN"]
+        S3[("S3 GOES-16")]
+        CJ["setup.json"]
+        CR["config_resampleo.json"]
+        CM["config_mapa.json"]
+        A["Grillas, logo y shapefiles"]
+    end
+
+    subgraph FLUJO["PROCESAMIENTO PRINCIPAL"]
+        D["Descarga"]
+        B[("NetCDF B02, B05, B07, B08, B10 y B13")]
+        P["Procesamiento RGB"]
+        N[("NetCDF RGB")]
+        M["Mapa"]
+        PNG[("PNG")]
+        GIF["Constructor GIF"]
+        GF[("GIF")]
+    end
+
+    subgraph DIAG["DIAGNÓSTICOS"]
+        B13[("Archivo NetCDF B13")]
+        DB["Diagnóstico B13"]
+        DO[("PNG térmicos<br/>JSON y CSV")]
+        DT["Diagnóstico temporal RGB"]
+        DC[("CSV temporal")]
+    end
+
+    S3 --> D
+    CJ --> D
+    D --> B
+
+    B --> P
+    CR --> P
+    P --> N
+
+    N --> M
+    CM --> M
+    A --> M
+    M --> PNG
+    PNG --> GIF
+    GIF --> GF
+
+    B13 --> DB
+    DB --> DO
+
+    PNG --> DT
+    DT --> DC
+
+    Note1["El diagnóstico temporal<br/>no lee el GIF"] -.-> DT
+
+    classDef entrada fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+    classDef proceso fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+    classDef salida fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#111827
+    classDef diag fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef nota fill:#f3f4f6,stroke:#4b5563,stroke-width:1px,color:#111827
+
+    class S3,CJ,CR,CM,A entrada
+    class D,P,M,GIF proceso
+    class B,N,PNG,GF salida
+    class B13,DB,DO,DT,DC diag
+    class Note1 nota

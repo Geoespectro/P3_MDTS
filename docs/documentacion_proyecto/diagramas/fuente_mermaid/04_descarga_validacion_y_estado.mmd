@@ -1,0 +1,70 @@
+flowchart TB
+
+    subgraph ACTUAL["COMPORTAMIENTO ACTUAL"]
+        A["Consultar listado S3<br/>del intervalo"]
+        B["Filtrar archivos por<br/>banda y timestamp"]
+        C["Descargar cada archivo<br/>en carpeta temporal"]
+        D{"¿Archivo con tamaño<br/>mayor que cero?"}
+        E["Mover archivo a<br/>descarga/data/intervalo"]
+        F["Worker agrega la ruta remota<br/>y reescribe download_db.json"]
+        G["Eliminar archivo temporal"]
+        H{"¿Están presentes todas<br/>las bandas requeridas?"}
+        I["Esperar el tiempo configurado<br/>y volver a consultar"]
+        J["Avanzar al siguiente<br/>intervalo de 10 minutos"]
+        K["run_all.py descubre<br/>la carpeta del intervalo"]
+        L{"¿Existe exactamente un archivo .nc<br/>por cada banda requerida?"}
+        M{"¿La firma nombre, tamaño y mtime<br/>permanece estable?"}
+        N["Intervalo listo<br/>para procesamiento"]
+        O["Esperar una nueva inspección<br/>e informar duplicados o faltantes"]
+
+        A --> B
+        B --> C
+        C --> D
+
+        D -- "Sí" --> E
+        E --> F
+        F --> H
+
+        D -- "No" --> G
+        G --> I
+
+        H -- "No" --> I
+        I --> A
+
+        H -- "Sí" --> J
+        J --> K
+        K --> L
+
+        L -- "Sí" --> M
+        L -- "No" --> O
+
+        M -- "Sí" --> N
+        M -- "No" --> O
+
+        O --> K
+    end
+
+    subgraph PROPUESTA["MEJORAS PROPUESTAS — NO IMPLEMENTADAS"]
+        P["Escritor único y<br/>reemplazo atómico del estado"]
+        Q["Reintentos finitos<br/>con backoff configurable"]
+        R["Validador compartido<br/>de intervalos"]
+        S["Clasificación de fallos<br/>recuperables y terminales"]
+    end
+
+    F -. "riesgo de escritura concurrente" .-> P
+    I -. "riesgo de reintentos indefinidos" .-> Q
+    H -. "reglas distribuidas" .-> R
+    L -. "reglas distribuidas" .-> R
+    D -. "error sin clasificación formal" .-> S
+
+    classDef acquisition fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef retry fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#111827
+    classDef success fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+    classDef proposed fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+
+    class A,B,C,E,F,J,K acquisition
+    class D,H,L,M decision
+    class G,I,O retry
+    class N success
+    class P,Q,R,S proposed
