@@ -14,8 +14,12 @@ Representan diferencias normalizadas: R=B08−B10, G=B07−B13 y B=B05−B02. La
 **¿Cuál es la precisión?**  
 No hay métricas de precisión disponibles. Existen pruebas unitarias del cálculo, pero no una validación contra verdad terreno o producto de referencia.
 
+**¿Qué satélites y modos admite?**
+
+GOES-16 y GOES-19, con archivos ABI Mode 3 (`M3Cxx`) y Mode 6 (`M6Cxx`). La selección del satélite se realiza en `descarga/setup.json`. La referencia temporal es 15 minutos para GOES-16 histórico Mode 3 y 10 minutos para GOES-16 Mode 6 y GOES-19 Mode 6.
+
 **¿Está validado el caso del 19-03-2024?**  
-No. La fecha está configurada, pero no se encontraron productos o informe de validación.
+La fecha figura en la configuración, pero aquí no está confirmado a qué caso de estudio corresponde ni qué resultados se asocian a ella. No debe presentarse como caso validado.
 
 ## Infraestructura
 
@@ -43,7 +47,7 @@ El orquestador exige una única coincidencia por banda. El procesador detecta fa
 Porque aún faltan mediciones y contratos probados. Introducir distribución antes de estabilizar estado y validación aumentaría complejidad sin evidencia de necesidad.
 
 **¿Cuál es el próximo paso?**  
-Persistencia de descarga segura, reintentos finitos, clasificación de fallos, validador único y pruebas sin red; luego una corrida reproducible con evidencia.
+Persistencia de descarga segura, reintentos finitos, clasificación de fallos, validador único y pruebas sin red; además, documentar una ejecución existente con su configuración, entradas y salidas.
 
 ## Usuarios institucionales
 
@@ -54,4 +58,4 @@ La configuración acepta fin nulo y el descargador puede continuar, pero sus rei
 No debe afirmarse. El repositorio implementa una composición orientada a ese producto; falta validación científica y operacional.
 
 **¿Qué limitaciones deben comunicarse?**  
-Ausencia de resultados reproducibles adjuntos, referencias científicas pendientes, cobertura parcial de pruebas y riesgos operativos de descarga, memoria y GIF.
+Hay resultados funcionales disponibles, pero no equivalen a una validación científica estadística completa. También deben comunicarse las referencias científicas pendientes, la cobertura parcial de pruebas y los riesgos operativos de descarga, memoria y GIF.

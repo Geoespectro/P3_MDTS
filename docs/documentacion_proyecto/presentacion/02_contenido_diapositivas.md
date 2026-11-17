@@ -1,7 +1,7 @@
 # Contenido propuesto de diapositivas
 
-## 1. SSE-Goes16 / P3 MDTS
-**Mapa RGB de Tormentas Severas** · Pipeline GOES-16 · Estado técnico actual.  
+## 1. P3 MDTS
+**Mapa RGB de Tormentas Severas** · Pipeline GOES-16 y GOES-19 · Estado técnico actual.<br>
 Imagen: logo existente. Pie: `Procesador/data/logo/logo.png`.
 
 ## 2. Problema
@@ -17,9 +17,10 @@ Imagen: logo existente. Pie: `Procesador/data/logo/logo.png`.
 
 ## 4. Datos y bandas
 **B02 · B05 · B07 · B08 · B10 · B13**  
-B13 = grilla de referencia.  
-Fuente: configuraciones del repositorio.  
-Información pendiente: referencia científica del producto.
+GOES-16 y GOES-19 · ABI Mode 3 (`M3Cxx`) y Mode 6 (`M6Cxx`).<br>
+Selección del satélite: `descarga/setup.json`. B13 = grilla de referencia.<br>
+Cadencia de referencia: GOES-16 histórico Mode 3, 15 min; Mode 6 de GOES-16 y GOES-19, 10 min.<br>
+Información pendiente: referencias científicas y validación estadística.
 
 ## 5. Arquitectura
 Descarga → Procesamiento → Cartografía → Diagnóstico  
@@ -34,24 +35,25 @@ Diagrama: [flujo general en SVG](../diagramas/exportados/01_flujo_general.svg). 
 - R = B08 − B10
 - G = B07 − B13
 - B = B05 − B02
-- Normalización fija a `[0,1]`
+- Rangos RGB: R `[-35.0, 5.0]`; G `[-5.0, 60.0]`; B `[-0.75, 0.25]`
+- Normalización y recorte a `[0,1]`
 
 Pie: `Procesador/src/helpers_resampleo.py`.  
 Pendiente: fundamento y validación científica de rangos.
 
-## 8. Productos previstos y evidencia disponible
-- NetCDF RGB georreferenciado.
-- Mapa PNG regional.
-- Animación GIF.
-- Diagnósticos B13 y temporales.
+## 8. Resultados funcionales y evidencia disponible
+- Ya hubo ejecuciones reales: existen NetCDF RGB, PNG, GIF y diagnósticos.
+- Casos de estudio: GOES-16 Mode 3 y Mode 6.
+- Prueba funcional: GOES-19 Mode 6.
 
-Evidencia visual: **pendiente de una corrida reproducible**.
+Estos resultados no constituyen validación científica estadística completa.
 
 ## 9. Calidad actual
 - 27 métodos de prueba declarados: 4 de descarga y 23 del procesador.
 - Pruebas de configuración, conversiones y álgebra.
-- Diagnósticos separados del pipeline.
-- Integración y resultados: pendientes.
+- Existen resultados funcionales y diagnósticos separados del pipeline.
+- No se afirma que la suite automatizada haya sido ejecutada.
+- Validación científica estadística: pendiente.
 
 ## 10. Limitaciones
 - Estado de descarga no sincronizado.
@@ -66,5 +68,5 @@ Evidencia visual: **pendiente de una corrida reproducible**.
 Diagrama: [roadmap en SVG](../diagramas/exportados/06_roadmap_mejoras.svg). Editable: [Drawio](../diagramas/editables/06_roadmap_mejoras.drawio).
 
 ## 12. Conclusión
-**La cadena está implementada en código.**  
-El próximo salto de calidad es hacerla verificable, robusta y científicamente respaldada.
+**La cadena ya tuvo ejecuciones reales y produjo resultados funcionales.**<br>
+El próximo paso es documentar la evidencia y completar la validación científica estadística.

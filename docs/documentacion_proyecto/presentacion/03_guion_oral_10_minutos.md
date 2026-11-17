@@ -4,7 +4,7 @@ Versión para **9 a 9:30 minutos** a 110–120 palabras por minuto, con margen p
 
 ## 1 · Apertura (0:00–0:30)
 
-“Presento SSE-Goes16, que implementa el producto P3 MDTS a partir de datos ABI de GOES-16. Explicaré el problema, la arquitectura, el procesamiento y el estado de la evidencia. Distinguiré entre lo implementado, lo inspeccionado y aquello que todavía debe ejecutarse o validarse.”
+“Presento P3 MDTS, Mapa RGB de Tormentas Severas, que procesa datos ABI de GOES-16 y GOES-19. Explicaré el problema, la arquitectura, el procesamiento y los resultados funcionales disponibles. Distinguiré esas ejecuciones de una validación científica estadística completa.”
 
 ## 2 · Problema y motivación (0:30–1:15)
 
@@ -16,7 +16,7 @@ Versión para **9 a 9:30 minutos** a 110–120 palabras por minuto, con margen p
 
 ## 4 · Datos y bandas (2:00–2:45)
 
-“Las bandas configuradas son B02, B05, B07, B08, B10 y B13. La banda 13 cumple una función especial: aporta la grilla espacial de referencia. El procesador interpola las demás bandas hacia sus coordenadas para que las restas se realicen sobre arreglos compatibles. Tanto la lista como la referencia B13 están explícitas en configuración y código. En cambio, la justificación científica completa de la composición, los rangos y los umbrales todavía necesita bibliografía y una validación documentada.”
+“Las bandas configuradas son B02, B05, B07, B08, B10 y B13. Se admiten archivos ABI Mode 3, identificados como M3Cxx, y Mode 6, identificados como M6Cxx; el satélite se selecciona en `descarga/setup.json`. La referencia histórica para GOES-16 Mode 3 es de 15 minutos; GOES-16 Mode 6 y GOES-19 Mode 6 usan 10 minutos. La banda 13 aporta la grilla espacial de referencia. La composición tiene rangos RGB configurados: rojo de −35 a 5, verde de −5 a 60 y azul de −0,75 a 0,25. La justificación científica completa de esos rangos y su validación estadística siguen pendientes.”
 
 ## 5 · Arquitectura (2:45–3:40)
 
@@ -28,15 +28,15 @@ Versión para **9 a 9:30 minutos** a 110–120 palabras por minuto, con margen p
 
 ## 7 · Metodología RGB (4:40–5:45)
 
-“En la etapa física, B02 y B05 se convierten a reflectancia usando el coeficiente `kappa0`. B07, B08, B10 y B13 se convierten a temperatura de brillo y luego a grados Celsius. Con las seis bandas ya sobre la grilla de B13, el canal rojo se calcula como B08 menos B10; el verde como B07 menos B13; y el azul como B05 menos B02. Cada resultado se normaliza con un rango fijo configurado y se recorta entre cero y uno. Podemos demostrar que esa fórmula y esas validaciones existen. No podemos afirmar todavía qué precisión meteorológica alcanza ni que una determinada apariencia confirme por sí sola una tormenta severa.”
+“En la etapa física, B02 y B05 se convierten a reflectancia usando el coeficiente `kappa0`. B07, B08, B10 y B13 se convierten a temperatura de brillo y luego a grados Celsius. Con las seis bandas ya sobre la grilla de B13, el canal rojo se calcula como B08 menos B10; el verde como B07 menos B13; y el azul como B05 menos B02. Los rangos actuales son R de −35 a 5, G de −5 a 60 y B de −0,75 a 0,25; los resultados se normalizan y recortan entre cero y uno. Las ejecuciones comprueban el funcionamiento en los casos realizados, pero no permiten afirmar una precisión meteorológica ni que una determinada apariencia confirme por sí sola una tormenta severa.”
 
 ## 8 · Productos previstos y evidencia disponible (5:45–6:35)
 
-“La implementación prevé un NetCDF RGB con variables Red, Green y Blue, coordenadas y metadatos geoespaciales; un PNG regional con elementos cartográficos; y un GIF generado a partir de los PNG disponibles. También prevé mapas térmicos y estadísticas de B13, además de un CSV de cambios temporales RGB. Sin embargo, en el material compartido no se encontraron productos finales reproducibles ni logs de una corrida. Por eso esta diapositiva habla de productos previstos y evidencia disponible, no de resultados ya demostrados. Antes de una exposición final conviene incorporar una corrida identificada por commit, configuración y entradas.”
+“Ya hubo ejecuciones reales del pipeline y existen resultados funcionales: NetCDF RGB, PNG, GIF y diagnósticos. Se realizaron casos de estudio con GOES-16 Mode 3 y Mode 6, además de una prueba funcional con GOES-19 Mode 6. Esto demuestra funcionamiento en esos casos, no una validación científica estadística completa. La evidencia que se presente debe identificar la corrida, su configuración y sus entradas, sin atribuirle resultados que no estén documentados.”
 
 ## 9 · Pruebas y diagnósticos (6:35–7:30)
 
-“El recuento directo da 27 métodos de prueba declarados: cuatro en el archivo de descarga y veintitrés en el procesador. Cubren estructura y configuración, selección de bandas, rangos, normalización, conversiones físicas y álgebra. En esta revisión no se ejecutaron, así que la cifra describe existencia, no aprobación. Tampoco cubren todavía el orquestador, una descarga S3 simulada, cartografía, GIF o diagnósticos. El diagnóstico B13 consume específicamente el NetCDF de B13. El diagnóstico temporal, pese a su nombre, no lee el GIF: compara los PNG consecutivos. Y diagnóstico no equivale a validación científica; solamente calcula métricas definidas por el código.”
+“El inventario registra 27 métodos de prueba declarados: cuatro en el archivo de descarga y veintitrés en el procesador. Cubren estructura y configuración, selección de bandas, rangos, normalización, conversiones físicas y álgebra. No hay constancia explícita aquí de que la suite automatizada se haya ejecutado, por lo que la cifra describe métodos declarados, no aprobación. El diagnóstico B13 consume específicamente el NetCDF de B13. El diagnóstico temporal, pese a su nombre, no lee el GIF: compara los PNG consecutivos. Los diagnósticos funcionales tampoco equivalen a validación científica estadística.”
 
 ## 10 · Limitaciones y riesgos (7:30–8:25)
 
@@ -48,4 +48,4 @@ Versión para **9 a 9:30 minutos** a 110–120 palabras por minuto, con margen p
 
 ## 12 · Cierre (9:10–9:30)
 
-“En conclusión, SSE-Goes16 contiene una cadena completa en código y una arquitectura que puede explicarse y mantenerse. El próximo salto de calidad no es sumar funciones: es convertir esa implementación en evidencia reproducible. El trabajo concreto recomendado es robustecer descarga e intervalos y luego documentar una corrida controlada de extremo a extremo. Con esa base podremos hablar de resultados verificados y avanzar hacia una validación científica responsable.”
+“En conclusión, P3 MDTS ya tuvo ejecuciones reales y produjo resultados funcionales para los casos indicados. El próximo paso es documentar esa evidencia de forma reproducible y completar una validación científica estadística con referencias adecuadas. Los resultados funcionales son una base para ese trabajo, no su sustituto.”

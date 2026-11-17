@@ -3,12 +3,12 @@
 ## Imprescindibles antes de la exposición
 
 - [ ] Salida fechada de la suite y versiones del entorno.
-- [ ] Manifiesto reproducible de un intervalo: configuración, nombres y checksums.
-- [ ] NetCDF RGB válido e inspección de variables/metadatos.
-- [ ] PNG final revisado visual y geoespacialmente.
-- [ ] GIF del conjunto controlado, con orden temporal confirmado.
-- [ ] Resultado de diagnósticos B13 y RGB.
-- [ ] Evidencia o retiro explícito del caso 19-03-2024.
+- [ ] Adjuntar manifiesto reproducible de un intervalo: configuración, nombres y checksums.
+- [ ] Adjuntar e inspeccionar variables/metadatos de un NetCDF RGB disponible.
+- [ ] Revisar visual y geoespacialmente un PNG disponible.
+- [ ] Confirmar y documentar el orden temporal de un GIF disponible.
+- [ ] Adjuntar resultados disponibles de los diagnósticos B13 y RGB.
+- [ ] Confirmar o retirar explícitamente el caso 19-03-2024, que no está asociado aquí a un caso de estudio confirmado.
 - [ ] Referencias científicas para composición, rangos y umbrales.
 
 ## Recomendables
@@ -17,7 +17,7 @@
 - [ ] Tabla de entradas/salidas con tamaños y duración.
 - [ ] Medición pico de memoria por intervalo.
 - [ ] Prueba documentada de interrupción y recuperación.
-- [ ] Comparación con una fuente de validación autorizada.
+- [ ] Validación científica estadística con una muestra adecuada y una fuente de referencia autorizada.
 - [ ] Revisión de licencia/atribución de logo, grillas y shapefiles.
 
 ## Opcionales

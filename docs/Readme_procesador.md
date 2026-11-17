@@ -2,7 +2,7 @@
 
 ## Propósito
 
-El módulo `Procesador/` genera el producto **Mapa RGB de Tormentas Severas** a partir de intervalos completos de bandas GOES-16 ABI.
+El módulo `Procesador/` genera el producto **Mapa RGB de Tormentas Severas** a partir de intervalos completos de bandas ABI de los satélites GOES-16 y GOES-19.
 
 El procesamiento incluye resampleo espacial, conversión radiométrica, álgebra RGB, normalización fija, generación de un NetCDF georreferenciado, mapas PNG y un GIF animado.
 
@@ -84,8 +84,8 @@ Configuración esperada:
   "save_resampled_bands": false,
   "rgb_ranges": {
     "red": [-35.0, 5.0],
-    "green": [-10.0, 90.0],
-    "blue": [-0.75, 0.50]
+    "green": [-5.0, 60.0],
+    "blue": [-0.75, 0.25]
   }
 }
 ```
@@ -117,6 +117,8 @@ B02, B05, B07, B08, B10 y B13
 ```
 
 Si falta una banda o existe más de un archivo coincidente para una misma banda, el intervalo no se procesa correctamente y se informa el error.
+
+El procesador admite archivos ABI con nomenclatura correspondiente a Mode 3 y Mode 6.
 
 ## Resampleo
 
@@ -172,9 +174,8 @@ Configuración actual:
 
 ```text
 Red   → -35.0 a 5.0
-Green → -10.0 a 90.0
-Blue  → -0.75 a 0.50
-```
+Green → -5.0 a 60.0
+Blue  → -0.75 a 0.25
 
 Los valores externos a cada rango se recortan a `0` o `1`.
 
@@ -218,6 +219,26 @@ Controla:
 - título;
 - duración de cada cuadro del GIF.
 
+El satélite utilizado se define en:
+
+```text
+descarga/setup.json
+```
+
+y puede configurarse como:
+
+```json
+"satellite": "goes16"
+```
+
+o:
+
+```json
+"satellite": "goes19"
+```
+
+Los nombres y títulos de los productos se generan automáticamente según el satélite configurado.
+
 Los shapefiles son opcionales. Si no están presentes, el mapa puede generarse sin esos límites personalizados.
 
 Cartopy puede requerir acceso a internet en la primera ejecución para descargar recursos Natural Earth si no están disponibles en su caché local.
@@ -246,6 +267,14 @@ Nombre esperado:
 CONAE_PRD_GOES16_ABI_MDTS_RGB_<intervalo>.png
 ```
 
+o:
+
+```text
+CONAE_PRD_GOES19_ABI_MDTS_RGB_<intervalo>.png
+```
+
+según el satélite configurado.
+
 ## GIF
 
 Después de generar los mapas, `mapa_rgb.py` reúne los PNG existentes, los ordena por nombre y reconstruye:
@@ -253,6 +282,14 @@ Después de generar los mapas, `mapa_rgb.py` reúne los PNG existentes, los orde
 ```text
 Procesador/data/output/gif/CONAE_PRD_GOES16_ABI_MDTS_RGB_animacion.gif
 ```
+
+o:
+
+```text
+Procesador/data/output/gif/CONAE_PRD_GOES19_ABI_MDTS_RGB_animacion.gif
+```
+
+según el satélite configurado.
 
 La duración de cada cuadro se define con `gif_frame_duration` en `config_mapa.json`.
 
@@ -367,3 +404,5 @@ Procesador/data/
 ```
 
 Estos productos no deben versionarse.
+```
+

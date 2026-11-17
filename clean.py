@@ -30,6 +30,7 @@ CLEAN_CONFIG = {
     "mapas_png": True,
     "gif": True,
     "diagnosticos_generados": True,
+    "comparaciones_eventos": True,
     "pipeline_state": True,
 }
 
@@ -50,13 +51,30 @@ PATHS = {
     "mapas_png": PROJECT_ROOT / "Procesador" / "data" / "output" / "png",
     "gif": PROJECT_ROOT / "Procesador" / "data" / "output" / "gif",
     "diagnosticos_generados": (
-        PROJECT_ROOT / "Procesador" / "data" / "output" / "diagnostico"
+        PROJECT_ROOT
+        / "Procesador"
+        / "data"
+        / "output"
+        / "diagnostico"
+    ),
+    "comparaciones_eventos": (
+        PROJECT_ROOT
+        / "Procesador"
+        / "data"
+        / "diagnostico"
     ),
     "pipeline_state": PROJECT_ROOT / "pipeline_state.json",
 }
 
 
+# ============================================================
+# VALIDACIONES DE SEGURIDAD
+# ============================================================
+
 def is_inside_project(path: Path) -> bool:
+    """
+    Verifica que la ruta esté dentro de la raíz del proyecto.
+    """
     try:
         path.resolve().relative_to(PROJECT_ROOT.resolve())
         return True
@@ -65,47 +83,81 @@ def is_inside_project(path: Path) -> bool:
 
 
 def validate_target(path: Path) -> None:
+    """
+    Evita borrar rutas fuera del proyecto o la raíz completa.
+    """
     resolved = path.resolve()
 
     if not is_inside_project(resolved):
-        raise ValueError(f"Ruta fuera del proyecto: {resolved}")
+        raise ValueError(
+            f"Ruta fuera del proyecto: {resolved}"
+        )
 
     if resolved == PROJECT_ROOT.resolve():
-        raise ValueError("No se permite eliminar la raíz completa del proyecto.")
+        raise ValueError(
+            "No se permite eliminar la raíz completa del proyecto."
+        )
 
+
+# ============================================================
+# FUNCIONES DE LIMPIEZA
+# ============================================================
 
 def remove_path(path: Path) -> int:
+    """
+    Elimina un archivo, enlace simbólico o directorio completo.
+    """
     validate_target(path)
 
     if not path.exists() and not path.is_symlink():
         return 0
 
     if DRY_RUN:
-        print(f"  [SIMULACIÓN] Se eliminaría: {path}")
+        print(
+            f"  [SIMULACIÓN] Se eliminaría: {path}"
+        )
         return 1
 
     if path.is_symlink() or path.is_file():
         path.unlink()
+
     elif path.is_dir():
         shutil.rmtree(path)
 
-    print(f"  [ELIMINADO] {path}")
+    print(
+        f"  [ELIMINADO] {path}"
+    )
+
     return 1
 
 
 def clean_directory_contents(directory: Path) -> int:
+    """
+    Limpia el contenido de una carpeta, pero conserva la carpeta.
+    """
     validate_target(directory)
 
     if not directory.exists():
         if DRY_RUN:
-            print(f"  [NO EXISTE] {directory}")
+            print(
+                f"  [NO EXISTE] {directory}"
+            )
         else:
-            directory.mkdir(parents=True, exist_ok=True)
-            print(f"  [CREADO VACÍO] {directory}")
+            directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            print(
+                f"  [CREADO VACÍO] {directory}"
+            )
+
         return 0
 
     if not directory.is_dir():
-        raise ValueError(f"La ruta esperada no es un directorio: {directory}")
+        raise ValueError(
+            f"La ruta esperada no es un directorio: {directory}"
+        )
 
     removed = 0
 
@@ -113,51 +165,96 @@ def clean_directory_contents(directory: Path) -> int:
         removed += remove_path(item)
 
     if removed == 0:
-        print(f"  [YA ESTABA VACÍO] {directory}")
+        print(
+            f"  [YA ESTABA VACÍO] {directory}"
+        )
 
     return removed
 
 
-def clean_selected_item(key: str, path: Path) -> int:
+def clean_selected_item(
+    key: str,
+    path: Path,
+) -> int:
+    """
+    Ejecuta la limpieza correspondiente a cada elemento.
+    """
     print(f"\n{key}:")
 
     if key == "pipeline_state":
         removed = remove_path(path)
+
         if removed == 0:
-            print(f"  [NO EXISTE] {path}")
+            print(
+                f"  [NO EXISTE] {path}"
+            )
+
         return removed
 
-    return clean_directory_contents(path)
+    return clean_directory_contents(
+        path
+    )
 
+
+# ============================================================
+# MAIN
+# ============================================================
 
 def main() -> None:
     print("=" * 60)
     print("LIMPIEZA DEL PROYECTO P3 MDTS")
     print("=" * 60)
-    print(f"Raíz del proyecto: {PROJECT_ROOT}")
-    print(f"Modo simulación: {'ACTIVADO' if DRY_RUN else 'DESACTIVADO'}")
+
+    print(
+        f"Raíz del proyecto: {PROJECT_ROOT}"
+    )
+
+    print(
+        f"Modo simulación: "
+        f"{'ACTIVADO' if DRY_RUN else 'DESACTIVADO'}"
+    )
 
     total_removed = 0
     enabled_count = 0
 
     for key, enabled in CLEAN_CONFIG.items():
+
         if not enabled:
             print(f"\n{key}:")
-            print("  [OMITIDO POR CONFIGURACIÓN]")
+            print(
+                "  [OMITIDO POR CONFIGURACIÓN]"
+            )
             continue
 
         enabled_count += 1
-        total_removed += clean_selected_item(key, PATHS[key])
+
+        total_removed += clean_selected_item(
+            key,
+            PATHS[key],
+        )
 
     print("\n" + "=" * 60)
 
     if enabled_count == 0:
-        print("No había ninguna opción de limpieza activada.")
+        print(
+            "No había ninguna opción de limpieza activada."
+        )
+
     elif DRY_RUN:
-        print(f"Simulación finalizada. Elementos detectados: {total_removed}")
-        print("No se eliminó ningún archivo.")
+        print(
+            f"Simulación finalizada. "
+            f"Elementos detectados: {total_removed}"
+        )
+
+        print(
+            "No se eliminó ningún archivo."
+        )
+
     else:
-        print(f"Limpieza finalizada. Elementos eliminados: {total_removed}")
+        print(
+            f"Limpieza finalizada. "
+            f"Elementos eliminados: {total_removed}"
+        )
 
     print("=" * 60)
 

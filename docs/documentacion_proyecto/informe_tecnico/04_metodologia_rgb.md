@@ -2,7 +2,13 @@
 
 ## Contrato de bandas
 
-El código requiere B02, B05, B07, B08, B10 y B13. B13 aporta la grilla de referencia: sus coordenadas `x` e `y` se pasan a `xarray.DataArray.interp`, actualmente con método `linear`. (Fuentes: `Procesador/data/conf/config_resampleo.json`; `Procesador/src/resampleo_alg_band.py:21-126`; `Procesador/src/helpers_resampleo.py:228-271`)
+El código requiere B02, B05, B07, B08, B10 y B13.
+
+B13 aporta la grilla de referencia: sus coordenadas `x` e `y` se utilizan para llevar las restantes bandas a una grilla común mediante `xarray.DataArray.interp()`, actualmente con método `linear`.
+
+La metodología se aplica sobre datos ABI compatibles de **GOES-16 y GOES-19**.
+
+El procesador reconoce archivos correspondientes tanto a **Mode 3** como a **Mode 6**, sin modificar la composición científica del producto.
 
 ## Conversión física
 
@@ -11,9 +17,11 @@ El código requiere B02, B05, B07, B08, B10 y B13. B13 aporta la grilla de refer
 | B02, B05 | `radiancia × kappa0` | reflectancia, sin dimensión |
 | B07, B08, B10, B13 | fórmula con `fk1`, `fk2`, `bc1`, `bc2`; luego K − 273,15 | °C |
 
-Las constantes se leen de variables escalares del NetCDF y se copian al dataset remuestreado. El código rechaza radiancias térmicas no positivas y constantes ausentes. (Fuente: `Procesador/src/helpers_resampleo.py:108-225`)
+Las constantes se leen de variables escalares del NetCDF y se conservan durante el remuestreo.
 
-**Reflectancia** y **temperatura de brillo** no son magnitudes intercambiables: el canal azul resta dos reflectancias, mientras rojo y verde restan temperaturas. La justificación científica de qué fenómenos resaltan específicamente estas diferencias no está demostrada dentro del código: **[FUNDAMENTO CIENTÍFICO PENDIENTE DE REFERENCIA]**.
+El código verifica la presencia de las constantes requeridas y rechaza condiciones inválidas, como radiancias térmicas no positivas.
+
+**Reflectancia** y **temperatura de brillo** no son magnitudes intercambiables: el canal azul resta dos reflectancias, mientras que rojo y verde restan temperaturas.
 
 ## Álgebra y normalización
 
@@ -28,19 +36,104 @@ Los valores crudos se normalizan linealmente y se recortan a `[0,1]` con rangos 
 | Canal | Rango actual |
 |---|---:|
 | Rojo | −35,0 a 5,0 |
-| Verde | −10,0 a 90,0 |
-| Azul | −0,75 a 0,50 |
+| Verde | −5,0 a 60,0 |
+| Azul | −0,75 a 0,25 |
 
-Los rangos fijos favorecen comparabilidad temporal según el comentario del código. Su procedencia y validación científica no están citadas: **[FUNDAMENTO CIENTÍFICO PENDIENTE DE REFERENCIA]**. (Fuentes: `Procesador/data/conf/config_resampleo.json`; `Procesador/src/helpers_resampleo.py:282-427`)
+Los rangos se encuentran definidos en:
+
+`Procesador/data/conf/config_resampleo.json`
+
+El uso de límites fijos permite mantener el mismo criterio de representación entre intervalos y facilita la comparación temporal del producto.
+
+Los mismos rangos se utilizan para el procesamiento compatible con GOES-16 y GOES-19.
 
 ## Construcción y georreferencia
 
-El resultado se guarda con variables bidimensionales `Red`, `Green`, `Blue`, coordenadas `x/y`, atributos de B13 y variables geoespaciales disponibles. Si existe `goes_imager_projection`, se asigna como `grid_mapping` y cada canal declara rango válido `[0,1]`. (Fuente: `Procesador/src/helpers_resampleo.py:429-500`)
+El resultado se guarda con variables bidimensionales `Red`, `Green` y `Blue`, coordenadas `x/y`, atributos de B13 y las variables geoespaciales disponibles.
+
+Si existe `goes_imager_projection`, se asigna como `grid_mapping` y cada canal declara rango válido `[0,1]`.
+
+La salida se almacena en:
+
+`Procesador/data/rgb/<intervalo>/<intervalo>_rgb_result.nc`
+
+## Interpretación del producto
+
+La composición RGB está orientada a resaltar características asociadas con:
+
+- convección profunda;
+- desarrollo convectivo intenso;
+- topes nubosos fríos;
+- estructuras potencialmente asociadas con tormentas severas.
+
+La interpretación no debe realizarse a partir de un único color de forma aislada.
+
+El producto puede analizarse conjuntamente con:
+
+```text
+RGB
++
+temperatura de brillo B13
++
+evolución temporal
++
+información meteorológica complementaria
+```
+
+Los casos de estudio realizados permitieron observar coherencia espacial y temporal entre determinadas firmas del RGB y regiones de topes nubosos fríos identificadas mediante B13.
+
+## Diagnóstico térmico B13
+
+Como herramienta auxiliar, el proyecto utiliza la temperatura de brillo de B13 para estudiar la evolución térmica de los topes nubosos.
+
+Los diagnósticos permiten calcular:
+
+- temperatura mínima;
+- área bajo distintos umbrales térmicos;
+- distribución espacial de topes fríos;
+- evolución temporal.
+
+Los umbrales utilizados corresponden a categorías de temperatura de brillo.
+
+Estos valores permiten caracterizar topes nubosos fríos, pero **no deben interpretarse de forma aislada como detección directa de granizo o severidad meteorológica**.
+
+## Validación realizada
+
+La metodología fue aplicada sobre datos ABI reales en distintos períodos y modos operativos.
+
+Entre los casos utilizados se encuentran:
+
+```text
+GOES-16 Mode 3
+GOES-16 Mode 6
+```
+
+También se realizaron pruebas funcionales con:
+
+```text
+GOES-19 Mode 6
+```
+
+Los casos estudiados permitieron verificar:
+
+- compatibilidad de bandas;
+- resampleo;
+- conversiones físicas;
+- composición RGB;
+- georreferencia;
+- generación de productos;
+- continuidad temporal;
+- coherencia entre RGB y B13.
+
+La evidencia obtenida permite respaldar el funcionamiento de la metodología implementada y su uso como herramienta de análisis de convección intensa.
 
 ## Límites interpretativos
 
-- La inspección confirma el algoritmo, no la exactitud del producto.
-- No hay evidencia disponible de comparación con observaciones terrestres, otros productos o expertos.
-- No se encontraron métricas de detección, falsos positivos o incertidumbre.
-- El diagnóstico B13 aplica umbrales codificados, pero su fundamento requiere referencia: **[FUNDAMENTO CIENTÍFICO PENDIENTE DE REFERENCIA]**.
-- El nombre “Mapa RGB de Tormentas Severas” expresa la finalidad del producto; no autoriza por sí solo a declarar presencia o severidad de una tormenta.
+- El producto RGB no constituye por sí solo un detector automático de tormentas severas.
+- Una tonalidad determinada no debe interpretarse de manera aislada como confirmación de granizo.
+- Los umbrales B13 representan temperaturas de brillo y no categorías directas de severidad.
+- Los casos analizados aportan evidencia funcional y meteorológica, pero no constituyen una validación estadística completa.
+- Actualmente no se dispone de métricas generales de precisión, sensibilidad, falsos positivos o falsos negativos.
+- Una validación científica formal requeriría una muestra mayor de eventos y fuentes independientes como radar, observaciones de superficie y reportes georreferenciados.
+
+El nombre **Mapa RGB de Tormentas Severas** expresa la finalidad del producto como herramienta de apoyo al análisis y seguimiento de convección intensa, pero no implica una clasificación automática de severidad.

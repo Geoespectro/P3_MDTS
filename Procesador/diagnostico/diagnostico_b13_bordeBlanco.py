@@ -23,6 +23,7 @@ import csv
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,8 @@ import xarray as xr
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
+from cartopy.feature import ShapelyFeature
+from cartopy.io.shapereader import Reader
 # ============================================================
 # Rutas del proyecto
 # ============================================================
@@ -83,6 +86,17 @@ def load_json(path: Path) -> dict[str, Any]:
 
     return data
 
+def format_interval_label(interval: str) -> str:
+    """
+    Convierte:
+        2026-09-28_1000
+
+    en:
+        28/09/2026 - 10:00 UTC
+    """
+    dt = datetime.strptime(interval, "%Y-%m-%d_%H%M")
+    return dt.strftime("%d/%m/%Y - %H:%M UTC")
+
 
 def validate_required_files() -> None:
     required = [CONF_PATH]
@@ -94,6 +108,37 @@ def validate_required_files() -> None:
         )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def add_white_boundaries(axis, conf: dict[str, Any]) -> None:
+    """
+    Superpone límites provinciales en blanco para mejorar
+    la legibilidad de los mapas B13.
+    """
+    shp_dir = Path(conf["shp_dir"])
+
+    if not shp_dir.is_absolute():
+        shp_dir = PROJECT_DIR / shp_dir
+
+    provincial_shp = (
+        shp_dir
+        / "limite_interprovincial2"
+        / "008b_limites_provinciales_linea_PLATE.shp"
+    )
+
+    if provincial_shp.exists():
+        provincial_feature = ShapelyFeature(
+            Reader(str(provincial_shp)).geometries(),
+            ccrs.PlateCarree(),
+            facecolor="none",
+            edgecolor="white",
+            linewidth=0.4,
+        )
+
+        axis.add_feature(
+            provincial_feature,
+            zorder=5,
+        )
 
 
 def get_available_intervals() -> list[str]:
@@ -220,11 +265,13 @@ def save_bt_png(
     )
     colorbar.set_label("Temperatura de brillo B13 [°C]")
 
+    fecha_label = format_interval_label(interval)
+
     axis.set_title(
-        f"B13 Temperatura de brillo - {interval}",
+        f"B13 Temperatura de brillo - {fecha_label}",
         fontsize=10,
         pad=8,
-    )
+)
 
     figure.savefig(output_path, dpi=dpi)
     plt.close(figure)
@@ -286,14 +333,19 @@ def save_mask_png(
         zorder=2,
     )
 
+    # Límites provinciales y nacionales superpuestos en blanco
+    add_white_boundaries(axis, conf)
+
+    fecha_label = format_interval_label(interval)
+
     axis.set_title(
-        f"Máscaras térmicas B13 - {interval}\n"
+        f"Máscaras térmicas B13 - {fecha_label}\n"
         "amarillo: -63.15 a -53.15 °C | "
         "naranja: -73.15 a -63.15 °C | "
         "rojo: ≤ -73.15 °C",
-        fontsize=8,
+        fontsize=9,
         pad=8,
-    )
+)
 
     legend_elements = [
         Patch(

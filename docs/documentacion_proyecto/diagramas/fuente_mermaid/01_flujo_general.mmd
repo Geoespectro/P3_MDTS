@@ -1,7 +1,7 @@
 flowchart TB
 
     subgraph F1["1. FUENTES Y CONFIGURACIÓN"]
-        S3[("NOAA / S3<br/>Datos GOES-16")]
+        S3[("NOAA / S3<br/>GOES-16 / GOES-19<br/>ABI Mode 3 / Mode 6")]
         SETUP["descarga/setup.json<br/>Fechas, horarios, bandas y descarga"]
         CR["config_resampleo.json<br/>Remuestreo y procesamiento RGB"]
         CM["config_mapa.json<br/>Región y parámetros cartográficos"]
@@ -9,7 +9,7 @@ flowchart TB
     end
 
     subgraph F2["2. ADQUISICIÓN DE DATOS"]
-        DESC["Descarga de bandas GOES-16"]
+        DESC["Descarga de bandas ABI<br/>GOES-16 / GOES-19<br/>Mode 3 / Mode 6"]
         BANDAS[("NetCDF por intervalo<br/>B02, B05, B07, B08, B10 y B13")]
     end
 

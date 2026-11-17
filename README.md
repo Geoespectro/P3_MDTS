@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto implementa un pipeline para generar el producto **P3 MDTS** a partir de datos del sensor ABI del satélite GOES-16.
+Este proyecto implementa un pipeline para generar el producto **P3 MDTS — Mapa RGB de Tormentas Severas** a partir de datos del sensor ABI de los satélites **GOES-16 y GOES-19**.
 
 El flujo general es:
 
@@ -19,6 +19,14 @@ descarga de bandas
 
 El producto busca resaltar características asociadas con convección profunda y posibles tormentas severas.
 
+La selección del satélite se realiza desde:
+
+```text
+descarga/setup.json
+```
+
+---
+
 ## Requisitos
 
 - Linux.
@@ -28,10 +36,12 @@ El producto busca resaltar características asociadas con convección profunda y
 
 La primera generación cartográfica puede requerir acceso a internet si Cartopy todavía no dispone de los recursos Natural Earth en su caché local.
 
+---
+
 ## Estructura del proyecto
 
 ```text
-P3_MDTS_en_desarrollo/
+P3_MDTS/
 ├── descarga/
 │   ├── data/
 │   ├── db/
@@ -42,11 +52,13 @@ P3_MDTS_en_desarrollo/
 │   ├── inspect_bands.py
 │   └── setup.json
 ├── docs/
+│   ├── documentacion_proyecto/
 │   ├── Readme_descarga.md
 │   └── Readme_procesador.md
 ├── Procesador/
 │   ├── data/
 │   │   ├── conf/
+│   │   ├── diagnostico/
 │   │   ├── grids/
 │   │   ├── logo/
 │   │   ├── output/
@@ -54,6 +66,8 @@ P3_MDTS_en_desarrollo/
 │   │   ├── rgb/
 │   │   └── shp/
 │   ├── diagnostico/
+│   │   ├── comparacion_evento_cordoba_2018.py
+│   │   ├── comparacion_evento_mendoza_2024.py
 │   │   ├── diagnostico_b13.py
 │   │   └── diagnostico_gif_rgb.py
 │   └── src/
@@ -64,18 +78,28 @@ P3_MDTS_en_desarrollo/
 │   ├── test_descarga.py
 │   └── test_procesador.py
 ├── clean.py
+├── Dockerfile
 ├── requirements.txt
 ├── run_all.py
-└── Readme.md
+└── README.md
 ```
 
-Durante la ejecución, `run_all.py` crea `pipeline_state.json` en la raíz. Es un archivo temporal de control y no debe versionarse.
+Durante la ejecución, `run_all.py` crea `pipeline_state.json` en la raíz del proyecto. Es un archivo temporal de control y no debe versionarse.
+
+---
 
 ## Componentes
 
 ### Descarga
 
-El módulo `descarga/` obtiene las bandas GOES-16, organiza los archivos por intervalo temporal y registra el estado de las descargas.
+El módulo `descarga/` obtiene las bandas ABI desde NOAA, organiza los archivos por intervalo temporal y registra el estado de las descargas.
+
+Soporta:
+
+```text
+GOES-16
+GOES-19
+```
 
 Configuración:
 
@@ -95,9 +119,11 @@ Documentación específica:
 docs/Readme_descarga.md
 ```
 
+---
+
 ### Procesador
 
-El módulo `Procesador/` valida los intervalos completos, genera el RGB georreferenciado y produce los mapas y la animación.
+El módulo `Procesador/` valida los intervalos completos, procesa las bandas ABI, genera el RGB georreferenciado y produce los mapas PNG y la animación GIF.
 
 Entrada:
 
@@ -105,7 +131,7 @@ Entrada:
 descarga/data/<intervalo>/
 ```
 
-Salidas:
+Salidas principales:
 
 ```text
 Procesador/data/rgb/
@@ -113,15 +139,29 @@ Procesador/data/output/png/
 Procesador/data/output/gif/
 ```
 
+El procesador admite archivos correspondientes a **Mode 3 y Mode 6**.
+
 Documentación específica:
 
 ```text
 docs/Readme_procesador.md
 ```
 
+---
+
 ### Orquestador
 
-`run_all.py` coordina descarga, procesamiento, mapas y GIF. La descarga se ejecuta en segundo plano y el procesamiento comienza cuando detecta un intervalo completo y estable.
+`run_all.py` coordina el pipeline completo:
+
+```text
+descarga
+→ procesamiento
+→ NetCDF RGB
+→ mapa PNG
+→ GIF
+```
+
+La descarga se ejecuta en segundo plano y el procesamiento comienza cuando se detecta un intervalo completo y estable.
 
 También permite procesar datos ya descargados:
 
@@ -129,17 +169,27 @@ También permite procesar datos ya descargados:
 python run_all.py --skip-download
 ```
 
+---
+
 ### Limpieza
 
-`clean.py` elimina datos y productos generados según su configuración interna, sin borrar el código ni la estructura principal.
+`clean.py` elimina datos temporales y productos generados sin borrar el código, las configuraciones ni los recursos principales del proyecto.
 
-Antes de usarlo, revisar:
+Para ejecutar una limpieza:
+
+```bash
+python clean.py
+```
+
+Puede configurarse:
 
 ```python
 DRY_RUN = True
 ```
 
-para simular la limpieza sin eliminar archivos.
+para simular qué archivos serían eliminados sin realizar cambios.
+
+---
 
 ## Bandas utilizadas
 
@@ -147,7 +197,7 @@ para simular la limpieza sin eliminar archivos.
 B02, B05, B07, B08, B10 y B13
 ```
 
-La banda B13 se usa como referencia espacial.
+La banda B13 se utiliza como referencia espacial.
 
 La composición aplicada es:
 
@@ -164,6 +214,14 @@ B02 y B05           → reflectancia
 B07, B08, B10 y B13 → temperatura de brillo en °C
 ```
 
+Los detalles del procesamiento y los rangos de normalización se encuentran en:
+
+```text
+docs/Readme_procesador.md
+```
+
+---
+
 ## Instalación
 
 Desde la raíz del proyecto:
@@ -173,6 +231,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+---
 
 ## Ejecución
 
@@ -228,6 +288,8 @@ python Procesador/diagnostico/diagnostico_gif_rgb.py
 python clean.py
 ```
 
+---
+
 ## Pruebas
 
 Desde la raíz:
@@ -236,21 +298,57 @@ Desde la raíz:
 python -m unittest discover -s test -p "test_*.py" -v
 ```
 
+---
+
+## Documentación
+
+La documentación operativa específica se encuentra en:
+
+```text
+docs/Readme_descarga.md
+docs/Readme_procesador.md
+```
+
+La documentación ampliada del proyecto se encuentra en:
+
+```text
+docs/documentacion_proyecto/
+```
+
+---
+
 ## Archivos generados
 
-No deben versionarse:
+Los siguientes archivos y directorios corresponden a datos temporales o productos generados y no deben versionarse:
 
 ```text
 descarga/data/
 descarga/temp/
 descarga/logs/
-descarga/db/download_db.json
+descarga/db/
+
 Procesador/data/resampled/
 Procesador/data/rgb/
 Procesador/data/output/png/
 Procesador/data/output/gif/
 Procesador/data/output/diagnostico/
+Procesador/data/diagnostico/
+
 pipeline_state.json
 pipeline_state.json.tmp
-mediciones/
+
+__pycache__/
+*.pyc
 ```
+
+Los recursos necesarios para ejecutar el proyecto deben conservarse:
+
+```text
+Procesador/data/conf/
+Procesador/data/grids/
+Procesador/data/logo/
+Procesador/data/shp/
+```
+```
+
+

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import numpy as np
 import xarray as xr
@@ -27,17 +28,23 @@ def load_config(config_path):
 def is_folder_complete(folder_path, required_bands):
     """
     Verifica si una carpeta contiene todos los archivos de las bandas requeridas.
+
+    Compatible con archivos ABI en modo M3 y M6.
     """
     if not os.path.exists(folder_path):
         return False
 
     existing_files = os.listdir(folder_path)
+    existing_bands = set()
 
-    existing_bands = set(
-        file.split("M6C")[-1].split("_")[0]
-        for file in existing_files
-        if "M6C" in file and file.endswith(".nc")
-    )
+    for file in existing_files:
+        if not file.endswith(".nc"):
+            continue
+
+        match = re.search(r"M[36]C(\d{2})_", file)
+
+        if match:
+            existing_bands.add(match.group(1))
 
     return all(band in existing_bands for band in required_bands)
 
@@ -46,14 +53,18 @@ def find_band_file(folder_path, band):
     """
     Encuentra un único archivo NetCDF correspondiente a una banda específica.
 
+    Compatible con archivos ABI en modo M3 y M6.
+
     Si no existe ningún archivo para la banda, lanza FileNotFoundError.
-    Si existe más de uno, lanza ValueError para evitar seleccionar un
-    archivo de forma ambigua.
+    Si existe más de uno, lanza ValueError para evitar seleccionar
+    un archivo de forma ambigua.
     """
+    pattern = re.compile(rf"M[36]C{re.escape(str(band))}_")
+
     matches = sorted(
         file
         for file in os.listdir(folder_path)
-        if f"M6C{band}" in file and file.endswith(".nc")
+        if file.endswith(".nc") and pattern.search(file)
     )
 
     if not matches:

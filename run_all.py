@@ -315,10 +315,13 @@ def print_status(state: dict[str, Any], max_retries: int) -> None:
 
 def get_band_from_filename(filename: str) -> str | None:
     """
-    Extrae la banda desde nombres como:
-    OR_ABI-L1b-RadF-M6C13_G16_...
+    Extrae la banda desde archivos ABI en modo M3 o M6.
+
+    Ejemplos:
+        OR_ABI-L1b-RadF-M3C13_G16_... -> 13
+        OR_ABI-L1b-RadF-M6C13_G19_... -> 13
     """
-    match = re.search(r"M6C(\d{2})_", filename)
+    match = re.search(r"M[36]C(\d{2})_", filename)
     return match.group(1) if match else None
 
 

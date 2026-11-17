@@ -26,6 +26,14 @@ logging.basicConfig(
 
 PROCESSOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+PROJECT_DIR = os.path.dirname(PROCESSOR_DIR)
+
+SETUP_PATH = os.path.join(
+    PROJECT_DIR,
+    "descarga",
+    "setup.json",
+)
+
 CONFIG_PATH = os.path.join(
     PROCESSOR_DIR,
     "data",
@@ -40,6 +48,44 @@ def load_config(config_path):
     """
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def get_satellite_names():
+    """
+    Obtiene el satélite configurado en descarga/setup.json.
+
+    Retorna:
+    - código para nombres de archivo: GOES16 / GOES19
+    - etiqueta para títulos: GOES-16 / GOES-19
+    """
+    with open(SETUP_PATH, "r", encoding="utf-8") as f:
+        setup = json.load(f)
+
+    satellite = setup.get("satellite", "").lower()
+
+    satellites = {
+        "goes16": ("GOES16", "GOES-16"),
+        "goes19": ("GOES19", "GOES-19"),
+    }
+
+    if satellite not in satellites:
+        raise ValueError(
+            "Satélite no soportado en descarga/setup.json: "
+            f"{satellite!r}. Usar 'goes16' o 'goes19'."
+        )
+
+    return satellites[satellite]
+
+
+def resolve_satellite_template(value, for_filename=False):
+    """
+    Reemplaza {SATELLITE} por el satélite configurado.
+    """
+    satellite_code, satellite_label = get_satellite_names()
+
+    replacement = satellite_code if for_filename else satellite_label
+
+    return value.replace("{SATELLITE}", replacement)
 
 
 def ensure_directory(path):
@@ -84,10 +130,14 @@ def get_crop_indexes(ds, conf):
     lats_path = os.path.join(grids_dir, "g16_lats_8km.txt")
 
     if not os.path.exists(lons_path):
-        raise FileNotFoundError(f"No se encontró la grilla de longitudes: {lons_path}")
+        raise FileNotFoundError(
+            f"No se encontró la grilla de longitudes: {lons_path}"
+        )
 
     if not os.path.exists(lats_path):
-        raise FileNotFoundError(f"No se encontró la grilla de latitudes: {lats_path}")
+        raise FileNotFoundError(
+            f"No se encontró la grilla de latitudes: {lats_path}"
+        )
 
     lons = np.loadtxt(lons_path)
     lats = np.loadtxt(lats_path)
@@ -99,7 +149,9 @@ def get_crop_indexes(ds, conf):
         )
 
     if lons.ndim != 2 or lats.ndim != 2:
-        raise ValueError("Las grillas auxiliares deben ser matrices bidimensionales.")
+        raise ValueError(
+            "Las grillas auxiliares deben ser matrices bidimensionales."
+        )
 
     region = conf.get("region", "ARG")
 
@@ -128,10 +180,15 @@ def get_crop_indexes(ds, conf):
     else:
         raise ValueError("Región no soportada. Usar ARG o SuA.")
 
-    spatial_resolution = ds.attrs.get("spatial_resolution", "2km at nadir")
+    spatial_resolution = ds.attrs.get(
+        "spatial_resolution",
+        "2km at nadir",
+    )
 
     try:
-        band_resolution_km = float(str(spatial_resolution).split("km")[0])
+        band_resolution_km = float(
+            str(spatial_resolution).split("km")[0]
+        )
     except (TypeError, ValueError) as exc:
         raise ValueError(
             "No se pudo interpretar el atributo spatial_resolution: "
@@ -139,10 +196,14 @@ def get_crop_indexes(ds, conf):
         ) from exc
 
     if band_resolution_km <= 0:
-        raise ValueError(f"Resolución espacial inválida: {band_resolution_km} km")
+        raise ValueError(
+            f"Resolución espacial inválida: {band_resolution_km} km"
+        )
 
     ref_grid_resolution_km = 8
-    frac = int(ref_grid_resolution_km / band_resolution_km)
+    frac = int(
+        ref_grid_resolution_km / band_resolution_km
+    )
 
     if frac <= 0:
         raise ValueError(
@@ -152,10 +213,21 @@ def get_crop_indexes(ds, conf):
 
     half = int(lons.shape[0] / 2)
 
-    min_lon_idx = np.abs(lons - min_lon)[half, :].argmin()
-    max_lon_idx = np.abs(lons - max_lon)[half, :].argmin()
-    max_lat_idx = np.abs(lats - min_lat)[:, half].argmin()
-    min_lat_idx = np.abs(lats - max_lat)[:, half].argmin()
+    min_lon_idx = np.abs(
+        lons - min_lon
+    )[half, :].argmin()
+
+    max_lon_idx = np.abs(
+        lons - max_lon
+    )[half, :].argmin()
+
+    max_lat_idx = np.abs(
+        lats - min_lat
+    )[:, half].argmin()
+
+    min_lat_idx = np.abs(
+        lats - max_lat
+    )[:, half].argmin()
 
     min_lon_idx *= frac
     max_lon_idx *= frac
@@ -177,22 +249,55 @@ def get_crop_indexes(ds, conf):
             f"{min_lat_idx}:{max_lat_idx}, tamaño y={y_size}"
         )
 
-    sat_h = ds["goes_imager_projection"].perspective_point_height
+    sat_h = (
+        ds["goes_imager_projection"]
+        .perspective_point_height
+    )
 
-    x = ds["x"].values[min_lon_idx:max_lon_idx] * sat_h
-    y = ds["y"].values[min_lat_idx:max_lat_idx] * sat_h
+    x = (
+        ds["x"]
+        .values[min_lon_idx:max_lon_idx]
+        * sat_h
+    )
+
+    y = (
+        ds["y"]
+        .values[min_lat_idx:max_lat_idx]
+        * sat_h
+    )
 
     if x.size == 0 or y.size == 0:
         raise ValueError(
-            "El recorte calculado quedó vacío. Revisar límites y deltas del mapa."
+            "El recorte calculado quedó vacío. "
+            "Revisar límites y deltas del mapa."
         )
 
-    img_extent = (x.min(), x.max(), y.min(), y.max())
-    img_indexes = [min_lon_idx, max_lon_idx, min_lat_idx, max_lat_idx]
+    img_extent = (
+        x.min(),
+        x.max(),
+        y.min(),
+        y.max(),
+    )
 
-    map_extent = [map_min_lon, map_max_lon, map_min_lat, map_max_lat]
+    img_indexes = [
+        min_lon_idx,
+        max_lon_idx,
+        min_lat_idx,
+        max_lat_idx,
+    ]
 
-    return img_extent, img_indexes, map_extent
+    map_extent = [
+        map_min_lon,
+        map_max_lon,
+        map_min_lat,
+        map_max_lat,
+    ]
+
+    return (
+        img_extent,
+        img_indexes,
+        map_extent,
+    )
 
 
 def get_plot_object(conf, map_extent):
@@ -202,9 +307,13 @@ def get_plot_object(conf, map_extent):
     """
     shp_dir = conf["shp_dir"]
 
-    cartopy.config["pre_existing_data_dir"] = shp_dir
+    cartopy.config[
+        "pre_existing_data_dir"
+    ] = shp_dir
 
-    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax = plt.axes(
+        projection=ccrs.PlateCarree()
+    )
 
     map_extent = [
         map_extent[0],
@@ -213,28 +322,47 @@ def get_plot_object(conf, map_extent):
         map_extent[3],
     ]
 
-    ax.set_extent(map_extent, ccrs.PlateCarree())  # type: ignore[attr-defined]
+    ax.set_extent(
+        map_extent,
+        ccrs.PlateCarree(),
+    )  # type: ignore[attr-defined]
 
     ax.coastlines(  # type: ignore[attr-defined]
         "10m",
-        lw=conf.get("line_width_inches_for_coast", 0.2),
+        lw=conf.get(
+            "line_width_inches_for_coast",
+            0.2,
+        ),
         color="black",
     )
 
-    grid_step = conf.get("grid_step_degrees", 10.0)
+    grid_step = conf.get(
+        "grid_step_degrees",
+        10.0,
+    )
 
     if grid_step <= 0:
-        raise ValueError("'grid_step_degrees' debe ser mayor que cero.")
+        raise ValueError(
+            "'grid_step_degrees' debe ser mayor que cero."
+        )
 
     xlocs = np.arange(
-        np.floor(map_extent[0] / grid_step) * grid_step,
-        np.ceil(map_extent[1] / grid_step) * grid_step + grid_step,
+        np.floor(
+            map_extent[0] / grid_step
+        ) * grid_step,
+        np.ceil(
+            map_extent[1] / grid_step
+        ) * grid_step + grid_step,
         grid_step,
     )
 
     ylocs = np.arange(
-        np.floor(map_extent[2] / grid_step) * grid_step,
-        np.ceil(map_extent[3] / grid_step) * grid_step + grid_step,
+        np.floor(
+            map_extent[2] / grid_step
+        ) * grid_step,
+        np.ceil(
+            map_extent[3] / grid_step
+        ) * grid_step + grid_step,
         grid_step,
     )
 
@@ -244,7 +372,10 @@ def get_plot_object(conf, map_extent):
         linestyle="--",
         color="black",
         draw_labels=True,
-        linewidth=conf.get("line_width_inches_for_gridlines", 0.3),
+        linewidth=conf.get(
+            "line_width_inches_for_gridlines",
+            0.3,
+        ),
     )
 
     gl.top_labels = False
@@ -264,8 +395,15 @@ def get_plot_object(conf, map_extent):
         "008b_limites_provinciales_linea_PLATE.shp",
     )
 
-    if os.path.exists(shp_internacional):
-        paises = list(shpreader.Reader(shp_internacional).geometries())
+    if os.path.exists(
+        shp_internacional
+    ):
+        paises = list(
+            shpreader.Reader(
+                shp_internacional
+            ).geometries()
+        )
+
         for pais in paises:
             ax.add_geometries(  # type: ignore[attr-defined]
                 [pais],
@@ -277,14 +415,22 @@ def get_plot_object(conf, map_extent):
                     0.2,
                 ),
             )
+
     else:
         logging.warning(
             "No se encontró shapefile internacional: %s",
             shp_internacional,
         )
 
-    if os.path.exists(shp_provincial):
-        provincias = list(shpreader.Reader(shp_provincial).geometries())
+    if os.path.exists(
+        shp_provincial
+    ):
+        provincias = list(
+            shpreader.Reader(
+                shp_provincial
+            ).geometries()
+        )
+
         for provincia in provincias:
             ax.add_geometries(  # type: ignore[attr-defined]
                 [provincia],
@@ -296,6 +442,7 @@ def get_plot_object(conf, map_extent):
                     0.3,
                 ),
             )
+
     else:
         logging.warning(
             "No se encontró shapefile provincial: %s",
@@ -305,21 +452,34 @@ def get_plot_object(conf, map_extent):
     return ax
 
 
-def add_image_foot(ax, title, institution=None, size=8.0):
+def add_image_foot(
+    ax,
+    title,
+    institution=None,
+    size=8.0,
+):
     """
     Añade la banda blanca superior con el título.
     """
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
 
-    width = xlim[1] - xlim[0]
+    width = (
+        xlim[1] - xlim[0]
+    )
 
     # Franja superior un poco más alta para contener correctamente el logo.
-    banner_height = 0.065 * (ylim[1] - ylim[0])
+    banner_height = (
+        0.065
+        * (ylim[1] - ylim[0])
+    )
 
     ax.add_patch(
         Rectangle(
-            (xlim[0], ylim[1] - banner_height),
+            (
+                xlim[0],
+                ylim[1] - banner_height,
+            ),
             width,
             banner_height,
             alpha=1,
@@ -330,8 +490,10 @@ def add_image_foot(ax, title, institution=None, size=8.0):
     )
 
     ax.text(
-        xlim[0] + 0.002 * width,
-        ylim[1] - banner_height / 1.55,
+        xlim[0]
+        + 0.002 * width,
+        ylim[1]
+        - banner_height / 1.55,
         title,
         horizontalalignment="left",
         verticalalignment="center",
@@ -342,8 +504,10 @@ def add_image_foot(ax, title, institution=None, size=8.0):
 
     if institution:
         ax.text(
-            xlim[1] - 0.05 * width,
-            ylim[1] - banner_height / 2,
+            xlim[1]
+            - 0.05 * width,
+            ylim[1]
+            - banner_height / 2,
             institution,
             horizontalalignment="right",
             verticalalignment="center",
@@ -353,42 +517,94 @@ def add_image_foot(ax, title, institution=None, size=8.0):
         )
 
 
-def add_logo(ax, logo_path):
+def add_logo(
+    ax,
+    logo_path,
+):
     """
     Añade el logo dentro de la franja blanca superior.
     """
-    if not os.path.exists(logo_path):
-        logging.warning("No se encontró logo: %s", logo_path)
+    if not os.path.exists(
+        logo_path
+    ):
+        logging.warning(
+            "No se encontró logo: %s",
+            logo_path,
+        )
         return
 
-    logo_img = plt.imread(logo_path)
+    logo_img = plt.imread(
+        logo_path
+    )
 
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
 
-    axis_width = xlim[1] - xlim[0]
-    axis_height = ylim[1] - ylim[0]
+    axis_width = (
+        xlim[1] - xlim[0]
+    )
 
-    banner_height = 0.065 * axis_height
+    axis_height = (
+        ylim[1] - ylim[0]
+    )
+
+    banner_height = (
+        0.065 * axis_height
+    )
 
     # El logo ocupa como máximo el 8 % del ancho del mapa.
-    logo_width = 0.08 * axis_width
-    logo_height = logo_width * logo_img.shape[0] / logo_img.shape[1]
+    logo_width = (
+        0.08 * axis_width
+    )
+
+    logo_height = (
+        logo_width
+        * logo_img.shape[0]
+        / logo_img.shape[1]
+    )
 
     # Evita que el logo sea más alto que la franja blanca.
-    max_logo_height = 0.80 * banner_height
+    max_logo_height = (
+        0.80 * banner_height
+    )
 
-    if logo_height > max_logo_height:
-        logo_height = max_logo_height
-        logo_width = logo_height * logo_img.shape[1] / logo_img.shape[0]
+    if (
+        logo_height
+        > max_logo_height
+    ):
+        logo_height = (
+            max_logo_height
+        )
 
-    right_margin = 0.01 * axis_width
+        logo_width = (
+            logo_height
+            * logo_img.shape[1]
+            / logo_img.shape[0]
+        )
 
-    logo_x = xlim[1] - right_margin - logo_width
+    right_margin = (
+        0.01 * axis_width
+    )
+
+    logo_x = (
+        xlim[1]
+        - right_margin
+        - logo_width
+    )
 
     # Centrado vertical dentro de la franja.
-    banner_bottom = ylim[1] - banner_height
-    logo_y = banner_bottom + (banner_height - logo_height) / 2
+    banner_bottom = (
+        ylim[1]
+        - banner_height
+    )
+
+    logo_y = (
+        banner_bottom
+        + (
+            banner_height
+            - logo_height
+        ) / 2
+    )
 
     ax.imshow(
         logo_img,
@@ -402,66 +618,159 @@ def add_logo(ax, logo_path):
         zorder=25,
     )
 
-def safe_rgb(red, green, blue):
+
+def safe_rgb(
+    red,
+    green,
+    blue,
+):
     """
-    Asegura que los canales queden en rango 0-1 y reemplaza valores inválidos.
+    Asegura que los canales queden en rango 0-1
+    y reemplaza valores inválidos.
     """
-    red = np.nan_to_num(red, nan=0.0, posinf=1.0, neginf=0.0)
-    green = np.nan_to_num(green, nan=0.0, posinf=1.0, neginf=0.0)
-    blue = np.nan_to_num(blue, nan=0.0, posinf=1.0, neginf=0.0)
+    red = np.nan_to_num(
+        red,
+        nan=0.0,
+        posinf=1.0,
+        neginf=0.0,
+    )
 
-    red = np.clip(red, 0.0, 1.0)
-    green = np.clip(green, 0.0, 1.0)
-    blue = np.clip(blue, 0.0, 1.0)
+    green = np.nan_to_num(
+        green,
+        nan=0.0,
+        posinf=1.0,
+        neginf=0.0,
+    )
 
-    return np.dstack((red, green, blue))
+    blue = np.nan_to_num(
+        blue,
+        nan=0.0,
+        posinf=1.0,
+        neginf=0.0,
+    )
+
+    red = np.clip(
+        red,
+        0.0,
+        1.0,
+    )
+
+    green = np.clip(
+        green,
+        0.0,
+        1.0,
+    )
+
+    blue = np.clip(
+        blue,
+        0.0,
+        1.0,
+    )
+
+    return np.dstack(
+        (
+            red,
+            green,
+            blue,
+        )
+    )
 
 
-def get_timestamp_label(ds, interval_name):
+def get_timestamp_label(
+    ds,
+    interval_name,
+):
     """
     Intenta obtener fecha/hora desde atributos GOES.
     Si no puede, usa el nombre del intervalo.
     """
-    timestamp = ds.attrs.get("time_coverage_start")
+    timestamp = ds.attrs.get(
+        "time_coverage_start"
+    )
 
     if not timestamp:
         return interval_name
 
     try:
         if "." in timestamp:
-            timestamp = timestamp.split(".")[0] + "Z"
+            timestamp = (
+                timestamp.split(".")[0]
+                + "Z"
+            )
 
-        return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").strftime(
+        return datetime.strptime(
+            timestamp,
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).strftime(
             "%d/%m/%Y - %H:%M UTC"
         )
-    except (TypeError, ValueError):
+
+    except (
+        TypeError,
+        ValueError,
+    ):
         return interval_name
 
 
-def build_output_name(conf, interval_name):
+def build_output_name(
+    conf,
+    interval_name,
+):
     """
     Construye el nombre del archivo PNG de salida.
     """
-    prefix = conf.get("output_prefix", "CONAE_PRD_GOES16_ABI_MDTS_RGB")
-    return f"{prefix}_{interval_name}.png"
+    prefix_template = conf.get(
+        "output_prefix",
+        "CONAE_PRD_{SATELLITE}_ABI_MDTS_RGB",
+    )
+
+    prefix = resolve_satellite_template(
+        prefix_template,
+        for_filename=True,
+    )
+
+    return (
+        f"{prefix}_"
+        f"{interval_name}.png"
+    )
 
 
-def get_existing_pngs(conf):
+def get_existing_pngs(
+    conf,
+):
     """
     Obtiene todos los PNG existentes en el directorio configurado.
     """
-    output_png_dir = conf["output_png_dir"]
-    pattern = os.path.join(output_png_dir, "*.png")
-    return sorted(glob.glob(pattern))
+    output_png_dir = conf[
+        "output_png_dir"
+    ]
+
+    pattern = os.path.join(
+        output_png_dir,
+        "*.png",
+    )
+
+    return sorted(
+        glob.glob(pattern)
+    )
 
 
-def process_rgb_file(rgb_file, conf):
+def process_rgb_file(
+    rgb_file,
+    conf,
+):
     """
     Genera un mapa PNG a partir de un RGB NetCDF georreferenciado.
     """
-    logging.info("Procesando RGB: %s", rgb_file)
+    logging.info(
+        "Procesando RGB: %s",
+        rgb_file,
+    )
 
-    ds = xr.open_dataset(rgb_file)
+    ds = xr.open_dataset(
+        rgb_file
+    )
+
     fig = None
 
     try:
@@ -475,61 +784,134 @@ def process_rgb_file(rgb_file, conf):
         ]
 
         for var in required_vars:
-            if var not in ds.variables and var not in ds.coords:
+            if (
+                var not in ds.variables
+                and var not in ds.coords
+            ):
                 raise ValueError(
-                    f"El archivo no contiene la variable/coordenada requerida: {var}"
+                    "El archivo no contiene la "
+                    "variable/coordenada requerida: "
+                    f"{var}"
                 )
 
         interval_name = ds.attrs.get(
             "interval_name",
-            os.path.basename(os.path.dirname(rgb_file)),
+            os.path.basename(
+                os.path.dirname(
+                    rgb_file
+                )
+            ),
         )
 
-        img_extent, img_indexes, map_extent = get_crop_indexes(ds, conf)
+        (
+            img_extent,
+            img_indexes,
+            map_extent,
+        ) = get_crop_indexes(
+            ds,
+            conf,
+        )
 
-        min_lon_idx, max_lon_idx, min_lat_idx, max_lat_idx = img_indexes
+        (
+            min_lon_idx,
+            max_lon_idx,
+            min_lat_idx,
+            max_lat_idx,
+        ) = img_indexes
 
-        red = ds["Red"].values[
+        red = ds[
+            "Red"
+        ].values[
             min_lat_idx:max_lat_idx,
             min_lon_idx:max_lon_idx,
         ]
-        green = ds["Green"].values[
-            min_lat_idx:max_lat_idx,
-            min_lon_idx:max_lon_idx,
-        ]
-        blue = ds["Blue"].values[
+
+        green = ds[
+            "Green"
+        ].values[
             min_lat_idx:max_lat_idx,
             min_lon_idx:max_lon_idx,
         ]
 
-        if red.size == 0 or green.size == 0 or blue.size == 0:
+        blue = ds[
+            "Blue"
+        ].values[
+            min_lat_idx:max_lat_idx,
+            min_lon_idx:max_lon_idx,
+        ]
+
+        if (
+            red.size == 0
+            or green.size == 0
+            or blue.size == 0
+        ):
             raise ValueError(
-                "Uno o más canales RGB quedaron vacíos después del recorte."
+                "Uno o más canales RGB quedaron "
+                "vacíos después del recorte."
             )
 
-        if not (red.shape == green.shape == blue.shape):
+        if not (
+            red.shape
+            == green.shape
+            == blue.shape
+        ):
             raise ValueError(
-                "Los canales RGB no tienen las mismas dimensiones después "
-                f"del recorte: R={red.shape}, G={green.shape}, B={blue.shape}"
+                "Los canales RGB no tienen las mismas "
+                "dimensiones después del recorte: "
+                f"R={red.shape}, "
+                f"G={green.shape}, "
+                f"B={blue.shape}"
             )
 
-        rgb_image = safe_rgb(red, green, blue)
+        rgb_image = safe_rgb(
+            red,
+            green,
+            blue,
+        )
 
-        projection = ds["goes_imager_projection"]
+        projection = ds[
+            "goes_imager_projection"
+        ]
 
         sat_crs = ccrs.Geostationary(
-            central_longitude=projection.longitude_of_projection_origin,
-            satellite_height=projection.perspective_point_height,
+            central_longitude=(
+                projection
+                .longitude_of_projection_origin
+            ),
+            satellite_height=(
+                projection
+                .perspective_point_height
+            ),
         )
 
-        dpi = conf.get("figure_resolution_dpi", 200)
-        fig_width = conf.get("figure_length_inches", 8)
-        fig_height = conf.get("figure_high_inches", 5)
+        dpi = conf.get(
+            "figure_resolution_dpi",
+            200,
+        )
 
-        fig = plt.figure(clear=True)
-        fig.set_size_inches(fig_width, fig_height)
+        fig_width = conf.get(
+            "figure_length_inches",
+            8,
+        )
 
-        ax = get_plot_object(conf, map_extent)
+        fig_height = conf.get(
+            "figure_high_inches",
+            5,
+        )
+
+        fig = plt.figure(
+            clear=True
+        )
+
+        fig.set_size_inches(
+            fig_width,
+            fig_height,
+        )
+
+        ax = get_plot_object(
+            conf,
+            map_extent,
+        )
 
         ax.imshow(
             rgb_image,
@@ -539,30 +921,74 @@ def process_rgb_file(rgb_file, conf):
             aspect="auto",
         )
 
-        timestamp_label = get_timestamp_label(ds, interval_name)
+        timestamp_label = (
+            get_timestamp_label(
+                ds,
+                interval_name,
+            )
+        )
+
+        map_title_template = conf.get(
+            "map_title",
+            "{SATELLITE} ABI - MDTS RGB",
+        )
+
+        map_title = (
+            resolve_satellite_template(
+                map_title_template,
+            )
+        )
 
         title = (
-            f"{conf.get('map_title', 'GOES-16 ABI - MDTS RGB')} - " f"{timestamp_label}"
+            f"{map_title} - "
+            f"{timestamp_label}"
         )
 
         add_image_foot(
             ax,
             title,
-            size=conf.get("font_size_title", 8.0),
+            size=conf.get(
+                "font_size_title",
+                8.0,
+            ),
         )
 
-        add_logo(ax, conf["logo_path"])
+        add_logo(
+            ax,
+            conf["logo_path"],
+        )
 
-        output_png_dir = conf["output_png_dir"]
-        ensure_directory(output_png_dir)
+        output_png_dir = conf[
+            "output_png_dir"
+        ]
 
-        output_name = build_output_name(conf, interval_name)
-        output_path = os.path.join(output_png_dir, output_name)
+        ensure_directory(
+            output_png_dir
+        )
 
-        # Igual que P1/P2: sin bbox_inches="tight" para no alterar proporciones.
-        fig.savefig(output_path, dpi=dpi)
+        output_name = (
+            build_output_name(
+                conf,
+                interval_name,
+            )
+        )
 
-        logging.info("PNG generado: %s", output_path)
+        output_path = os.path.join(
+            output_png_dir,
+            output_name,
+        )
+
+        # Igual que P1/P2: sin bbox_inches="tight"
+        # para no alterar proporciones.
+        fig.savefig(
+            output_path,
+            dpi=dpi,
+        )
+
+        logging.info(
+            "PNG generado: %s",
+            output_path,
+        )
 
         return output_path
 
@@ -573,32 +999,65 @@ def process_rgb_file(rgb_file, conf):
         ds.close()
 
 
-def build_gif(image_paths, conf):
+def build_gif(
+    image_paths,
+    conf,
+):
     """
     Genera o reconstruye el GIF usando los PNG recibidos.
     """
     if not image_paths:
-        logging.warning("No hay imágenes PNG para generar GIF.")
+        logging.warning(
+            "No hay imágenes PNG para generar GIF."
+        )
         return None
 
-    output_gif_dir = conf["output_gif_dir"]
-    ensure_directory(output_gif_dir)
+    output_gif_dir = conf[
+        "output_gif_dir"
+    ]
 
-    gif_path = os.path.join(output_gif_dir, conf["gif_filename"])
+    ensure_directory(
+        output_gif_dir
+    )
 
-    frame_duration = conf.get("gif_frame_duration", 0.7)
+    gif_filename = (
+        resolve_satellite_template(
+            conf["gif_filename"],
+            for_filename=True,
+        )
+    )
+
+    gif_path = os.path.join(
+        output_gif_dir,
+        gif_filename,
+    )
+
+    frame_duration = conf.get(
+        "gif_frame_duration",
+        0.7,
+    )
 
     if frame_duration <= 0:
-        raise ValueError("'gif_frame_duration' debe ser mayor que cero.")
+        raise ValueError(
+            "'gif_frame_duration' debe ser mayor que cero."
+        )
 
-    frame_duration_ms = int(frame_duration * 1000)
+    frame_duration_ms = int(
+        frame_duration * 1000
+    )
 
     frames = []
 
     try:
         for image_path in image_paths:
-            with Image.open(image_path) as image:
-                frames.append(image.convert("RGB").copy())
+            with Image.open(
+                image_path
+            ) as image:
+                frames.append(
+                    image.convert(
+                        "RGB"
+                    ).copy()
+                )
 
         frames[0].save(
             gif_path,
@@ -612,29 +1071,45 @@ def build_gif(image_paths, conf):
         for frame in frames:
             frame.close()
 
-    logging.info("GIF generado: %s", gif_path)
+    logging.info(
+        "GIF generado: %s",
+        gif_path,
+    )
 
     return gif_path
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generador de mapa y GIF para RGB georreferenciado P3 MDTS."
+        description=(
+            "Generador de mapa y GIF "
+            "para RGB georreferenciado P3 MDTS."
+        )
     )
 
     parser.add_argument(
         "--interval",
         type=str,
         default=None,
-        help="Nombre del intervalo a mapear. Ejemplo: 2024-12-06_2300",
+        help=(
+            "Nombre del intervalo a mapear. "
+            "Ejemplo: 2024-12-06_2300"
+        ),
     )
 
     args = parser.parse_args()
 
-    conf = load_config(CONFIG_PATH)
+    conf = load_config(
+        CONFIG_PATH
+    )
 
-    ensure_directory(conf["output_png_dir"])
-    ensure_directory(conf["output_gif_dir"])
+    ensure_directory(
+        conf["output_png_dir"]
+    )
+
+    ensure_directory(
+        conf["output_gif_dir"]
+    )
 
     rgb_files = get_rgb_files(
         conf["input_rgb_base_dir"],
@@ -646,14 +1121,21 @@ def main():
             logging.warning(
                 "No se encontró RGB para el intervalo %s en %s",
                 args.interval,
-                conf["input_rgb_base_dir"],
+                conf[
+                    "input_rgb_base_dir"
+                ],
             )
+
             return 1
+
         else:
             logging.warning(
                 "No se encontraron RGB en: %s",
-                conf["input_rgb_base_dir"],
+                conf[
+                    "input_rgb_base_dir"
+                ],
             )
+
             return 0
 
     if args.interval:
@@ -661,30 +1143,66 @@ def main():
             "Procesando mapa solo para intervalo: %s",
             args.interval,
         )
+
     else:
-        logging.info("RGB encontrados: %s", len(rgb_files))
+        logging.info(
+            "RGB encontrados: %s",
+            len(rgb_files),
+        )
 
     generated_pngs = []
     had_errors = False
 
     for rgb_file in rgb_files:
         try:
-            png_path = process_rgb_file(rgb_file, conf)
-            generated_pngs.append(png_path)
+            png_path = (
+                process_rgb_file(
+                    rgb_file,
+                    conf,
+                )
+            )
+
+            generated_pngs.append(
+                png_path
+            )
+
         except Exception as e:
             had_errors = True
-            logging.error("Error procesando %s: %s", rgb_file, e)
 
-    all_pngs = get_existing_pngs(conf)
+            logging.error(
+                "Error procesando %s: %s",
+                rgb_file,
+                e,
+            )
+
+    all_pngs = (
+        get_existing_pngs(
+            conf
+        )
+    )
 
     if not all_pngs:
-        all_pngs = sorted(generated_pngs)
+        all_pngs = sorted(
+            generated_pngs
+        )
 
-    build_gif(all_pngs, conf)
+    build_gif(
+        all_pngs,
+        conf,
+    )
 
-    logging.info("Proceso de mapa y GIF finalizado.")
-    return 1 if had_errors else 0
+    logging.info(
+        "Proceso de mapa y GIF finalizado."
+    )
+
+    return (
+        1
+        if had_errors
+        else 0
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        main()
+    )

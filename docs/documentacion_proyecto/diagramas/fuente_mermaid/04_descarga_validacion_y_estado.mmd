@@ -10,7 +10,7 @@ flowchart TB
         G["Eliminar archivo temporal"]
         H{"¿Están presentes todas<br/>las bandas requeridas?"}
         I["Esperar el tiempo configurado<br/>y volver a consultar"]
-        J["Avanzar al siguiente<br/>intervalo de 10 minutos"]
+        J["Avanzar según cadencia configurada<br/>15 min: GOES-16 Mode 3 histórico<br/>10 min: GOES-16 / GOES-19 Mode 6"]
         K["run_all.py descubre<br/>la carpeta del intervalo"]
         L{"¿Existe exactamente un archivo .nc<br/>por cada banda requerida?"}
         M{"¿La firma nombre, tamaño y mtime<br/>permanece estable?"}
